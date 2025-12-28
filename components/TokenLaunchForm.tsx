@@ -294,10 +294,9 @@ export default function TokenLaunchForm() {
         )
       } else if (err.message?.includes('403') || err.message?.includes('Access forbidden')) {
         setError(
-          '⚠️ Solana RPC endpoint is rate-limited or blocked. ' +
-          'For development, you need to: 1) Set up Pinata API keys in .env.local for image uploads, ' +
-          '2) Implement a backend API for token launching. ' +
-          'See README.md and PROGRAM_ARCHITECTURE.md for setup instructions.'
+          '⚠️ Solana RPC endpoint is temporarily rate-limited. ' +
+          'Please try again in a few moments. ' +
+          'If this persists, check your RPC endpoint configuration in environment variables.'
         )
       } else if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
         setError(
