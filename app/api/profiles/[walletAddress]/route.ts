@@ -67,17 +67,17 @@ export async function PUT(
       )
     }
 
-    // Validate image sizes (base64 strings can be very large)
-    const MAX_IMAGE_SIZE = 3000000 // ~3MB base64 string
-    if (avatarUrl && avatarUrl.length > MAX_IMAGE_SIZE) {
+    // Validate that URLs are valid (should be IPFS URLs, not base64)
+    // If it's a base64 string (starts with data:), reject it
+    if (avatarUrl && avatarUrl.startsWith('data:')) {
       return NextResponse.json(
-        { error: 'Avatar image is too large. Maximum size is 2MB. Please use a smaller image.' },
+        { error: 'Avatar image must be uploaded to IPFS first. Please select an image file to upload.' },
         { status: 400 }
       )
     }
-    if (bannerUrl && bannerUrl.length > MAX_IMAGE_SIZE) {
+    if (bannerUrl && bannerUrl.startsWith('data:')) {
       return NextResponse.json(
-        { error: 'Banner image is too large. Maximum size is 2MB. Please use a smaller image.' },
+        { error: 'Banner image must be uploaded to IPFS first. Please select an image file to upload.' },
         { status: 400 }
       )
     }

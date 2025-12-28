@@ -79,6 +79,9 @@ export default function AccountPage() {
   const bannerImageRef = useRef<HTMLInputElement>(null)
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null)
   const [bannerImagePreview, setBannerImagePreview] = useState<string | null>(null)
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
+  const [bannerImageFile, setBannerImageFile] = useState<File | null>(null)
+  const [uploadingImages, setUploadingImages] = useState(false)
   const [copied, setCopied] = useState(false)
   const [hasCheckedWallet, setHasCheckedWallet] = useState(false)
   const [transferringOwnership, setTransferringOwnership] = useState<string | null>(null)
@@ -269,60 +272,38 @@ export default function AccountPage() {
   const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      // Validate file size (max 2MB for profile images)
-      const maxSize = 2 * 1024 * 1024 // 2MB in bytes
-      if (file.size > maxSize) {
-        alert(`Image is too large. Maximum size is 2MB. Your image is ${(file.size / 1024 / 1024).toFixed(2)}MB.`)
-        e.target.value = '' // Clear the input
-        return
-      }
-
+      // Show preview immediately (base64 for display)
       const reader = new FileReader()
       reader.onloadend = () => {
-        const result = reader.result as string
-        // Check if base64 string is reasonable size (max ~1.5MB base64 = ~1MB image)
-        if (result.length > 2000000) {
-          alert('Image is too large. Please use a smaller image (under 1MB recommended).')
-          e.target.value = ''
-          return
-        }
-        setProfileImagePreview(result)
+        setProfileImagePreview(reader.result as string)
       }
       reader.onerror = () => {
         alert('Failed to read image file. Please try again.')
         e.target.value = ''
       }
       reader.readAsDataURL(file)
+      
+      // Store the file for upload to IPFS later
+      setProfileImageFile(file)
     }
   }
 
   const handleBannerImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      // Validate file size (max 3MB for banner images)
-      const maxSize = 3 * 1024 * 1024 // 3MB in bytes
-      if (file.size > maxSize) {
-        alert(`Banner image is too large. Maximum size is 3MB. Your image is ${(file.size / 1024 / 1024).toFixed(2)}MB.`)
-        e.target.value = '' // Clear the input
-        return
-      }
-
+      // Show preview immediately (base64 for display)
       const reader = new FileReader()
       reader.onloadend = () => {
-        const result = reader.result as string
-        // Check if base64 string is reasonable size (max ~2.5MB base64 = ~1.8MB image)
-        if (result.length > 2500000) {
-          alert('Banner image is too large. Please use a smaller image (under 2MB recommended).')
-          e.target.value = ''
-          return
-        }
-        setBannerImagePreview(result)
+        setBannerImagePreview(reader.result as string)
       }
       reader.onerror = () => {
         alert('Failed to read banner image file. Please try again.')
         e.target.value = ''
       }
       reader.readAsDataURL(file)
+      
+      // Store the file for upload to IPFS later
+      setBannerImageFile(file)
     }
   }
 
@@ -330,15 +311,70 @@ export default function AccountPage() {
     if (!profileFormData || !wallet.publicKey) return
 
     setSavingProfile(true)
+    setUploadingImages(true)
     try {
       const walletAddress = wallet.publicKey.toBase58()
+      
+      // Upload images to IPFS if new files were selected
+      let avatarUrl = profileFormData.profileImageUrl || null
+      let bannerUrl = profileFormData.bannerImageUrl || null
+      
+      if (profileImageFile) {
+        try {
+          const formData = new FormData()
+          formData.append('file', profileImageFile)
+          
+          const uploadResponse = await fetch('/api/upload-image', {
+            method: 'POST',
+            body: formData,
+          })
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload profile image')
+          }
+          
+          const uploadData = await uploadResponse.json()
+          avatarUrl = uploadData.ipfsUrl
+        } catch (error: any) {
+          console.error('Failed to upload profile image:', error)
+          alert(`Failed to upload profile image: ${error.message}. Please try again.`)
+          setSavingProfile(false)
+          setUploadingImages(false)
+          return
+        }
+      }
+      
+      if (bannerImageFile) {
+        try {
+          const formData = new FormData()
+          formData.append('file', bannerImageFile)
+          
+          const uploadResponse = await fetch('/api/upload-image', {
+            method: 'POST',
+            body: formData,
+          })
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload banner image')
+          }
+          
+          const uploadData = await uploadResponse.json()
+          bannerUrl = uploadData.ipfsUrl
+        } catch (error: any) {
+          console.error('Failed to upload banner image:', error)
+          alert(`Failed to upload banner image: ${error.message}. Please try again.`)
+          setSavingProfile(false)
+          setUploadingImages(false)
+          return
+        }
+      }
       
       // Prepare profile data for API
       const profileData = {
         username: profileFormData.username || null,
         bio: profileFormData.bio || null,
-        avatarUrl: profileImagePreview || profileFormData.profileImageUrl || null,
-        bannerUrl: bannerImagePreview || profileFormData.bannerImageUrl || null,
+        avatarUrl,
+        bannerUrl,
         website: profileFormData.socialLinks?.website || null,
         twitter: profileFormData.socialLinks?.twitter || null,
         telegram: profileFormData.socialLinks?.telegram || null,
@@ -392,9 +428,10 @@ export default function AccountPage() {
     } catch (err: any) {
       console.error('Failed to save profile:', err)
       alert(`Failed to save profile: ${err.message}`)
-    } finally {
-      setSavingProfile(false)
-    }
+           } finally {
+             setSavingProfile(false)
+             setUploadingImages(false)
+           }
   }
 
   const handleEditAllocations = (token: TokenInfo) => {
@@ -799,7 +836,7 @@ export default function AccountPage() {
                   disabled={savingProfile}
                   className="bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-6 rounded-lg transition-colors"
                 >
-                  {savingProfile ? 'Saving...' : 'Save Profile'}
+                  {uploadingImages ? 'Uploading images...' : savingProfile ? 'Saving...' : 'Save Profile'}
                 </button>
                 <button
                   onClick={() => {
