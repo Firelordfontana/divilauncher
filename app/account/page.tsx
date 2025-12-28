@@ -940,16 +940,20 @@ export default function AccountPage() {
           <div className="h-48 bg-gradient-to-r from-primary-600/30 to-primary-500/30 relative">
             {displayProfile?.bannerImageUrl || bannerImagePreview ? (
               <img
-                src={bannerImagePreview || (displayProfile?.bannerImageUrl ? getIPFSUrl(displayProfile.bannerImageUrl) : '')}
+                src={bannerImagePreview || (displayProfile?.bannerImageUrl 
+                  ? (displayProfile.bannerImageUrl.startsWith('data:') 
+                      ? displayProfile.bannerImageUrl 
+                      : getIPFSUrl(displayProfile.bannerImageUrl))
+                  : '')}
                 alt="Banner"
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  // Fallback to next gateway if image fails to load
+                  // Fallback to next gateway if image fails to load (only for IPFS URLs)
                   const img = e.currentTarget
                   const src = img.src
-                  if (src.includes('gateway.pinata.cloud')) {
+                  if (!src.startsWith('data:') && src.includes('gateway.pinata.cloud')) {
                     img.src = src.replace('gateway.pinata.cloud', 'ipfs.io')
-                  } else if (src.includes('ipfs.io')) {
+                  } else if (!src.startsWith('data:') && src.includes('ipfs.io')) {
                     img.src = src.replace('ipfs.io', 'cloudflare-ipfs.com')
                   }
                 }}
@@ -979,16 +983,20 @@ export default function AccountPage() {
             <div className="relative">
               {displayProfile?.profileImageUrl || profileImagePreview ? (
                 <img
-                  src={profileImagePreview || (displayProfile?.profileImageUrl ? getIPFSUrl(displayProfile.profileImageUrl) : '')}
+                  src={profileImagePreview || (displayProfile?.profileImageUrl 
+                    ? (displayProfile.profileImageUrl.startsWith('data:') 
+                        ? displayProfile.profileImageUrl 
+                        : getIPFSUrl(displayProfile.profileImageUrl))
+                    : '')}
                   alt="Profile"
                   className="w-32 h-32 rounded-full object-cover border-4 border-black"
                   onError={(e) => {
-                    // Fallback to next gateway if image fails to load
+                    // Fallback to next gateway if image fails to load (only for IPFS URLs)
                     const img = e.currentTarget
                     const src = img.src
-                    if (src.includes('gateway.pinata.cloud')) {
+                    if (!src.startsWith('data:') && src.includes('gateway.pinata.cloud')) {
                       img.src = src.replace('gateway.pinata.cloud', 'ipfs.io')
-                    } else if (src.includes('ipfs.io')) {
+                    } else if (!src.startsWith('data:') && src.includes('ipfs.io')) {
                       img.src = src.replace('ipfs.io', 'cloudflare-ipfs.com')
                     }
                   }}
