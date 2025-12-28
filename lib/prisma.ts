@@ -20,14 +20,18 @@ let connectionStringWithSSL = connectionString.replace(/[?&]sslmode=[^&]*/g, '')
 
 // Create pool with SSL config that accepts self-signed certificates
 // CRITICAL: We must set rejectUnauthorized: false for Supabase's self-signed certs
+// Increased timeouts for serverless environments (Vercel)
 const pool = new Pool({
   connectionString: connectionStringWithSSL,
   ssl: {
     rejectUnauthorized: false // CRITICAL: Allow Supabase's self-signed certificate
   },
-  max: 1,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 10000,
+  max: 1, // Single connection for serverless
+  idleTimeoutMillis: 30000, // 30 seconds
+  connectionTimeoutMillis: 30000, // 30 seconds (increased for serverless)
+  // Additional options for serverless
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 })
 
 const adapter = new PrismaPg(pool)
