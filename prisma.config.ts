@@ -9,8 +9,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"], // Connection pooler URL (for queries)
-    // Note: DIRECT_URL is read automatically from environment variables during migrations
-    // Prisma 7 will use DIRECT_URL env var if present, otherwise falls back to DATABASE_URL
+    url: process.env["DATABASE_URL"],
   },
 });

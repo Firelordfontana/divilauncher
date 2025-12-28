@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { prismaTokenToTokenInfo } from '@/lib/db-helpers'
-import { PublicKey } from '@solana/web3.js'
 
-// Force dynamic rendering for this route
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic' // Force dynamic rendering for this route
 
-// GET /api/tokens - List all tokens
 export async function GET(request: NextRequest) {
   try {
-    // Check if DATABASE_URL is set
     if (!process.env.DATABASE_URL) {
       console.error('DATABASE_URL environment variable is not set')
       return NextResponse.json(
@@ -23,74 +19,49 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    // Validate wallet address if provided
-    if (owner) {
-      try {
-        new PublicKey(owner)
-      } catch {
-        return NextResponse.json(
-          { error: 'Invalid wallet address' },
-          { status: 400 }
-        )
-      }
-    }
-
     // Build where clause
-    const where = owner
-      ? {
-          OR: [
-            { creatorWallet: owner },
-            { currentOwnerWallet: owner }
-          ]
-        }
-      : {}
+    const where = owner ? { creatorWallet: owner } : {}
 
-    // Get total count
-    const total = await prisma.token.count({ where })
-
-    // Fetch tokens with relations
-    const prismaTokens = await prisma.token.findMany({
-      where,
-      take: limit,
-      skip: offset,
-      orderBy: { launchDate: 'desc' },
-      include: {
-        allocations: {
-          orderBy: { date: 'desc' }
+    // Get tokens with pagination
+    const [tokens, total] = await Promise.all([
+      prisma.token.findMany({
+        where,
+        take: limit,
+        skip: offset,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          allocations: true,
+          ownershipTransfers: {
+            orderBy: { transferredAt: 'desc' },
+          },
         },
-        ownershipTransfers: {
-          orderBy: { date: 'desc' }
-        }
-      }
-    })
+      }),
+      prisma.token.count({ where }),
+    ])
 
     // Convert to API format
-    const tokens = prismaTokens.map(prismaTokenToTokenInfo)
+    const tokenInfos = tokens.map(prismaTokenToTokenInfo)
 
     return NextResponse.json({
-      tokens,
+      tokens: tokenInfos,
       total,
       limit,
-      offset
+      offset,
     })
   } catch (error: any) {
     console.error('Failed to fetch tokens:', error)
-    
-    // Provide more specific error messages
     if (error.message?.includes('DATABASE_URL') || error.message?.includes('environment variable')) {
       return NextResponse.json(
         { error: 'Database configuration error', details: 'DATABASE_URL environment variable is not set. Please configure it in Vercel.' },
         { status: 500 }
       )
     }
-    
-    if (error.message?.includes('Can\'t reach database') || error.message?.includes('connection')) {
+    if (error.message?.includes("Can't reach database") || error.message?.includes('connection')) {
       return NextResponse.json(
         { error: 'Database connection failed', details: 'Unable to connect to database. Please check your DATABASE_URL and database server status.' },
         { status: 500 }
       )
     }
-    
     return NextResponse.json(
       { error: 'Failed to fetch tokens', details: error.message },
       { status: 500 }
@@ -98,120 +69,84 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/tokens - Create new token
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    
     const {
       tokenAddress,
       name,
       ticker,
       description,
       imageUrl,
-      bannerUrl,
+      website,
+      telegram,
+      twitter,
+      discord,
       creatorWallet,
-      currentOwnerWallet,
-      platformFeePercent,
-      rewardDistributionPercent,
-      burnPercent,
+      initialOwnerWallet,
+      rewardTokenAddress,
+      rewardDistributionPercent = 0,
+      burnPercent = 0,
       burnToken,
-      rewardToken,
-      initialBuyAmount,
-      socialLinks
+      platformFeePercent = 2.0,
     } = body
 
     // Validate required fields
-    if (!tokenAddress || !name || !ticker || !creatorWallet) {
+    if (!tokenAddress || !name || !ticker || !creatorWallet || !initialOwnerWallet) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields', details: 'tokenAddress, name, ticker, creatorWallet, and initialOwnerWallet are required' },
         { status: 400 }
       )
     }
 
-    // Validate wallet addresses
-    try {
-      new PublicKey(creatorWallet)
-      if (currentOwnerWallet) {
-        new PublicKey(currentOwnerWallet)
-      }
-    } catch {
+    // Validate burnToken if burnPercent > 0
+    if (burnPercent > 0 && !burnToken) {
       return NextResponse.json(
-        { error: 'Invalid wallet address' },
+        { error: 'burnToken required when burnPercent > 0' },
         { status: 400 }
       )
     }
 
-    // Validate percentages
-    if (platformFeePercent < 0 || platformFeePercent > 10) {
-      return NextResponse.json(
-        { error: 'Platform fee must be between 0 and 10%' },
-        { status: 400 }
-      )
-    }
-
-    if (rewardDistributionPercent < 0 || rewardDistributionPercent > 100) {
-      return NextResponse.json(
-        { error: 'Reward distribution must be between 0 and 100%' },
-        { status: 400 }
-      )
-    }
-
-    if (burnPercent < 0 || burnPercent > 100) {
-      return NextResponse.json(
-        { error: 'Burn percentage must be between 0 and 100%' },
-        { status: 400 }
-      )
-    }
-
-    // Validate burnToken if provided
-    if (burnToken !== undefined && burnToken.trim() !== '') {
-      try {
-        new PublicKey(burnToken)
-      } catch {
-        return NextResponse.json(
-          { error: 'Invalid burn token address' },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Create token in database
+    // Create token
     const createdToken = await prisma.token.create({
       data: {
         tokenAddress,
         name,
         ticker,
-        description: description || '',
-        imageUrl: imageUrl || '',
-        bannerUrl: bannerUrl || null,
+        description: description || null,
+        imageUrl: imageUrl || null,
+        website: website || null,
+        telegram: telegram || null,
+        twitter: twitter || null,
+        discord: discord || null,
         creatorWallet,
-        currentOwnerWallet: currentOwnerWallet || creatorWallet,
-        platformFeePercent: platformFeePercent || 2,
-        rewardDistributionPercent: rewardDistributionPercent || 0,
-        burnPercent: burnPercent || 0,
+        initialOwnerWallet,
+        rewardTokenAddress: rewardTokenAddress || null,
+        rewardDistributionPercent,
+        burnPercent,
         burnToken: burnToken || null,
-        rewardToken: rewardToken || '',
-        initialBuyAmount: initialBuyAmount || 0.05,
-        socialLinks: socialLinks || {},
-        allocations: {
-          create: {
-            platformFeePercent: platformFeePercent || 2,
-            rewardDistributionPercent: rewardDistributionPercent || 0,
-            burnPercent: burnPercent || 0,
-          }
-        }
+        platformFeePercent,
       },
       include: {
         allocations: true,
-        ownershipTransfers: true
-      }
+        ownershipTransfers: true,
+      },
     })
 
     const token = prismaTokenToTokenInfo(createdToken)
 
-    return NextResponse.json({ token }, { status: 201 })
+    return NextResponse.json({ success: true, token }, { status: 201 })
   } catch (error: any) {
     console.error('Failed to create token:', error)
+    
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Token already exists', details: 'A token with this address already exists' },
+        { status: 409 }
+      )
+    }
+
     return NextResponse.json(
       { error: 'Failed to create token', details: error.message },
       { status: 500 }

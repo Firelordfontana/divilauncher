@@ -1,38 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { prismaProfileToAPIProfile } from '@/lib/db-helpers'
-import { PublicKey } from '@solana/web3.js'
+import { prismaProfileToCreatorProfile } from '@/lib/db-helpers'
 
-// GET /api/profiles/[walletAddress] - Get profile
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { walletAddress: string } }
 ) {
   try {
-    // Validate wallet address
-    try {
-      new PublicKey(params.walletAddress)
-    } catch {
+    const { walletAddress } = params
+
+    if (!walletAddress) {
       return NextResponse.json(
-        { error: 'Invalid wallet address' },
+        { error: 'Wallet address is required' },
         { status: 400 }
       )
     }
 
-    const prismaProfile = await prisma.creatorProfile.findUnique({
-      where: { walletAddress: params.walletAddress }
+    const profile = await prisma.profile.findUnique({
+      where: { walletAddress },
     })
 
-    if (!prismaProfile) {
+    if (!profile) {
       return NextResponse.json(
         { error: 'Profile not found' },
         { status: 404 }
       )
     }
 
-    const profile = prismaProfileToAPIProfile(prismaProfile)
-
-    return NextResponse.json({ profile })
+    return NextResponse.json({
+      profile: prismaProfileToCreatorProfile(profile),
+    })
   } catch (error: any) {
     console.error('Failed to fetch profile:', error)
     return NextResponse.json(
@@ -42,48 +41,59 @@ export async function GET(
   }
 }
 
-// PUT /api/profiles/[walletAddress] - Update or create profile
 export async function PUT(
   request: NextRequest,
   { params }: { params: { walletAddress: string } }
 ) {
   try {
-    // Validate wallet address
-    try {
-      new PublicKey(params.walletAddress)
-    } catch {
+    const { walletAddress } = params
+    const body = await request.json()
+
+    const {
+      username,
+      bio,
+      avatarUrl,
+      website,
+      twitter,
+      telegram,
+      discord,
+    } = body
+
+    if (!walletAddress) {
       return NextResponse.json(
-        { error: 'Invalid wallet address' },
+        { error: 'Wallet address is required' },
         { status: 400 }
       )
     }
 
-    const body = await request.json()
-    const { username, bio, profileImageUrl, bannerImageUrl, socialLinks } = body
-
     // Upsert profile (create or update)
-    const prismaProfile = await prisma.creatorProfile.upsert({
-      where: { walletAddress: params.walletAddress },
+    const profile = await prisma.profile.upsert({
+      where: { walletAddress },
       update: {
-        username: username ?? undefined,
-        bio: bio ?? undefined,
-        profileImageUrl: profileImageUrl ?? undefined,
-        bannerImageUrl: bannerImageUrl ?? undefined,
-        socialLinks: socialLinks ? (socialLinks as any) : undefined,
+        username: username !== undefined ? username : undefined,
+        bio: bio !== undefined ? bio : undefined,
+        avatarUrl: avatarUrl !== undefined ? avatarUrl : undefined,
+        website: website !== undefined ? website : undefined,
+        twitter: twitter !== undefined ? twitter : undefined,
+        telegram: telegram !== undefined ? telegram : undefined,
+        discord: discord !== undefined ? discord : undefined,
+        updatedAt: new Date(),
       },
       create: {
-        walletAddress: params.walletAddress,
+        walletAddress,
         username: username || null,
         bio: bio || null,
-        profileImageUrl: profileImageUrl || null,
-        bannerImageUrl: bannerImageUrl || null,
-        socialLinks: socialLinks ? (socialLinks as any) : {},
-      }
+        avatarUrl: avatarUrl || null,
+        website: website || null,
+        twitter: twitter || null,
+        telegram: telegram || null,
+        discord: discord || null,
+      },
     })
 
-    const profile = prismaProfileToAPIProfile(prismaProfile)
-
-    return NextResponse.json({ profile })
+    return NextResponse.json({
+      profile: prismaProfileToCreatorProfile(profile),
+    })
   } catch (error: any) {
     console.error('Failed to update profile:', error)
     return NextResponse.json(
