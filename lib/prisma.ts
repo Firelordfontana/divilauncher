@@ -12,17 +12,26 @@ const globalForPrisma = globalThis as unknown as {
 const connectionString = process.env.DATABASE_URL
 
 if (!connectionString) {
+  console.error('DATABASE_URL environment variable is not set')
   throw new Error('DATABASE_URL environment variable is not set')
 }
 
 // Supabase requires SSL connections
-const pool = new Pool({ 
-  connectionString,
-  ssl: {
-    rejectUnauthorized: false // Supabase uses self-signed certificates
-  }
-})
-const adapter = new PrismaPg(pool)
+let pool: Pool
+let adapter: PrismaPg
+
+try {
+  pool = new Pool({ 
+    connectionString,
+    ssl: {
+      rejectUnauthorized: false // Supabase uses self-signed certificates
+    }
+  })
+  adapter = new PrismaPg(pool)
+} catch (error) {
+  console.error('Failed to create database pool:', error)
+  throw error
+}
 
 export const prisma =
   globalForPrisma.prisma ??
