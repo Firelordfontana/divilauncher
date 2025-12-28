@@ -269,9 +269,28 @@ export default function AccountPage() {
   const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Validate file size (max 2MB for profile images)
+      const maxSize = 2 * 1024 * 1024 // 2MB in bytes
+      if (file.size > maxSize) {
+        alert(`Image is too large. Maximum size is 2MB. Your image is ${(file.size / 1024 / 1024).toFixed(2)}MB.`)
+        e.target.value = '' // Clear the input
+        return
+      }
+
       const reader = new FileReader()
       reader.onloadend = () => {
-        setProfileImagePreview(reader.result as string)
+        const result = reader.result as string
+        // Check if base64 string is reasonable size (max ~1.5MB base64 = ~1MB image)
+        if (result.length > 2000000) {
+          alert('Image is too large. Please use a smaller image (under 1MB recommended).')
+          e.target.value = ''
+          return
+        }
+        setProfileImagePreview(result)
+      }
+      reader.onerror = () => {
+        alert('Failed to read image file. Please try again.')
+        e.target.value = ''
       }
       reader.readAsDataURL(file)
     }
@@ -280,9 +299,28 @@ export default function AccountPage() {
   const handleBannerImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Validate file size (max 3MB for banner images)
+      const maxSize = 3 * 1024 * 1024 // 3MB in bytes
+      if (file.size > maxSize) {
+        alert(`Banner image is too large. Maximum size is 3MB. Your image is ${(file.size / 1024 / 1024).toFixed(2)}MB.`)
+        e.target.value = '' // Clear the input
+        return
+      }
+
       const reader = new FileReader()
       reader.onloadend = () => {
-        setBannerImagePreview(reader.result as string)
+        const result = reader.result as string
+        // Check if base64 string is reasonable size (max ~2.5MB base64 = ~1.8MB image)
+        if (result.length > 2500000) {
+          alert('Banner image is too large. Please use a smaller image (under 2MB recommended).')
+          e.target.value = ''
+          return
+        }
+        setBannerImagePreview(result)
+      }
+      reader.onerror = () => {
+        alert('Failed to read banner image file. Please try again.')
+        e.target.value = ''
       }
       reader.readAsDataURL(file)
     }

@@ -67,6 +67,21 @@ export async function PUT(
       )
     }
 
+    // Validate image sizes (base64 strings can be very large)
+    const MAX_IMAGE_SIZE = 3000000 // ~3MB base64 string
+    if (avatarUrl && avatarUrl.length > MAX_IMAGE_SIZE) {
+      return NextResponse.json(
+        { error: 'Avatar image is too large. Maximum size is 2MB. Please use a smaller image.' },
+        { status: 400 }
+      )
+    }
+    if (bannerUrl && bannerUrl.length > MAX_IMAGE_SIZE) {
+      return NextResponse.json(
+        { error: 'Banner image is too large. Maximum size is 2MB. Please use a smaller image.' },
+        { status: 400 }
+      )
+    }
+
     // Upsert profile (create or update)
     const profile = await prisma.profile.upsert({
       where: { walletAddress },
@@ -99,8 +114,17 @@ export async function PUT(
     })
   } catch (error: any) {
     console.error('Failed to update profile:', error)
+    
+    // Provide more helpful error messages
+    let errorMessage = error.message || 'Failed to update profile'
+    if (error.message?.includes('string') && error.message?.includes('pattern')) {
+      errorMessage = 'Image is too large or invalid format. Please use a smaller image (under 2MB recommended).'
+    } else if (error.message?.includes('value too long')) {
+      errorMessage = 'Image is too large. Please use a smaller image (under 2MB recommended).'
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to update profile', details: error.message },
+      { error: 'Failed to update profile', details: errorMessage },
       { status: 500 }
     )
   }
