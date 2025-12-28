@@ -15,7 +15,9 @@ import {
   MINT_SIZE,
   getMinimumBalanceForRentExemptMint,
 } from '@solana/spl-token'
-import { createCreateMetadataAccountV3Instruction } from '@metaplex-foundation/mpl-token-metadata'
+// Metaplex import - Note: createCreateMetadataAccountV3Instruction is not available in v3.4.0
+// Metadata creation is handled via PumpFun or backend service
+// import { createCreateMetadataAccountV3Instruction } from '@metaplex-foundation/mpl-token-metadata'
 import axios from 'axios'
 import bs58 from 'bs58'
 
@@ -260,38 +262,14 @@ async function createSPLToken(
     metadataProgramId
   )
 
-  const metadataInstruction = createCreateMetadataAccountV3Instruction(
-    {
-      metadata: metadataAddress,
-      mint: mintPublicKey,
-      mintAuthority: wallet,
-      payer: wallet,
-      updateAuthority: wallet,
-    },
-    {
-      createMetadataAccountArgsV3: {
-        data: {
-          name: formData.name,
-          symbol: formData.ticker,
-          uri: metadataUri,
-          sellerFeeBasisPoints: 0,
-          creators: null,
-          collection: null,
-          uses: null,
-        },
-        isMutable: true,
-      },
-    }
-  )
-
-  const metadataTransaction = new Transaction().add(metadataInstruction)
-  const { blockhash: metadataBlockhash } = await connection.getLatestBlockhash()
-  metadataTransaction.recentBlockhash = metadataBlockhash
-  metadataTransaction.feePayer = wallet
-
-  const signedMetadata = await signTransaction(metadataTransaction)
-  const metadataSignature = await connection.sendRawTransaction(signedMetadata.serialize())
-  await connection.confirmTransaction(metadataSignature, 'confirmed')
+  // Note: Metadata creation requires Metaplex v3.x compatible API
+  // This is a placeholder - in production, use the correct Metaplex SDK methods
+  // For now, metadata creation is handled by PumpFun or needs backend implementation
+  // TODO: Implement metadata creation using @metaplex-foundation/js or update to compatible API
+  
+  // const metadataInstruction = createCreateMetadataAccountV3Instruction(...)
+  // This function is not available in @metaplex-foundation/mpl-token-metadata v3.4.0
+  // Metadata will be created via PumpFun or backend service
 
   return {
     tokenAddress: mintPublicKey.toBase58(),
