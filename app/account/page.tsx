@@ -177,7 +177,7 @@ export default function AccountPage() {
             username: dbProfile.username || '',
             bio: dbProfile.bio || '',
             profileImageUrl: dbProfile.avatarUrl || '',
-            bannerImageUrl: '', // Banner not in DB schema yet
+            bannerImageUrl: dbProfile.bannerUrl || '',
             socialLinks: {
               website: dbProfile.website || undefined,
               twitter: dbProfile.twitter || undefined,
@@ -300,6 +300,7 @@ export default function AccountPage() {
         username: profileFormData.username || null,
         bio: profileFormData.bio || null,
         avatarUrl: profileImagePreview || profileFormData.profileImageUrl || null,
+        bannerUrl: bannerImagePreview || profileFormData.bannerImageUrl || null,
         website: profileFormData.socialLinks?.website || null,
         twitter: profileFormData.socialLinks?.twitter || null,
         telegram: profileFormData.socialLinks?.telegram || null,
@@ -329,7 +330,7 @@ export default function AccountPage() {
         username: savedProfile.username || '',
         bio: savedProfile.bio || '',
         profileImageUrl: savedProfile.avatarUrl || '',
-        bannerImageUrl: profileFormData.bannerImageUrl || '',
+        bannerImageUrl: savedProfile.bannerUrl || '',
         socialLinks: {
           website: savedProfile.website,
           twitter: savedProfile.twitter,

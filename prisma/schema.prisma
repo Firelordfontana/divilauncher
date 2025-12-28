@@ -70,6 +70,7 @@ model Profile {
   username      String?
   bio           String?
   avatarUrl     String?
+  bannerUrl     String?
   website       String?
   twitter       String?
   telegram      String?

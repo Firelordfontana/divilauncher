@@ -41,6 +41,7 @@ export interface CreatorProfile {
   username: string | null
   bio: string | null
   avatarUrl: string | null
+  bannerUrl: string | null
   website: string | null
   twitter: string | null
   telegram: string | null
@@ -106,6 +107,7 @@ export function prismaProfileToCreatorProfile(profile: Profile): CreatorProfile 
     username: profile.username,
     bio: profile.bio,
     avatarUrl: profile.avatarUrl,
+    bannerUrl: profile.bannerUrl || null,
     website: profile.website,
     twitter: profile.twitter,
     telegram: profile.telegram,
