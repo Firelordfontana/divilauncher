@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 // Simple in-memory cache (in production, use Redis)
 const balanceCache = new Map<string, { balance: number; timestamp: number }>()
 const CACHE_TTL = 30000 // 30 seconds
@@ -8,7 +11,7 @@ const CACHE_TTL = 30000 // 30 seconds
 // GET /api/balance?address=... - Get SOL balance with caching
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = request.nextUrl
     const address = searchParams.get('address')
 
     if (!address) {
