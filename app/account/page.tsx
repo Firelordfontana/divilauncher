@@ -5,6 +5,8 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { useRouter } from 'next/navigation'
 import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import Navigation from '@/components/Navigation'
+import { optimizeProfileImage, optimizeBannerImage, validateFileSize, validateImageType } from '@/utils/imageOptimizer'
+import { getIPFSUrl } from '@/utils/ipfsGateways'
 
 interface TokenInfo {
   tokenAddress: string
@@ -82,6 +84,8 @@ export default function AccountPage() {
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
   const [bannerImageFile, setBannerImageFile] = useState<File | null>(null)
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ profile: number; banner: number }>({ profile: 0, banner: 0 })
+  const [optimizingImages, setOptimizingImages] = useState(false)
   const [copied, setCopied] = useState(false)
   const [hasCheckedWallet, setHasCheckedWallet] = useState(false)
   const [transferringOwnership, setTransferringOwnership] = useState<string | null>(null)
@@ -269,9 +273,25 @@ export default function AccountPage() {
     }
   }
 
-  const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Validate file type
+      const typeValidation = validateImageType(file)
+      if (!typeValidation.valid) {
+        alert(typeValidation.error)
+        e.target.value = ''
+        return
+      }
+
+      // Validate file size (15MB limit like pump.fun)
+      const sizeValidation = validateFileSize(file, 15)
+      if (!sizeValidation.valid) {
+        alert(sizeValidation.error)
+        e.target.value = ''
+        return
+      }
+
       // Show preview immediately (base64 for display)
       const reader = new FileReader()
       reader.onloadend = () => {
@@ -283,14 +303,31 @@ export default function AccountPage() {
       }
       reader.readAsDataURL(file)
       
-      // Store the file for upload to IPFS later
+      // Optimize image before storing (this will happen in background)
+      // Store original for now, optimization happens on save
       setProfileImageFile(file)
     }
   }
 
-  const handleBannerImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Validate file type
+      const typeValidation = validateImageType(file)
+      if (!typeValidation.valid) {
+        alert(typeValidation.error)
+        e.target.value = ''
+        return
+      }
+
+      // Validate file size (15MB limit like pump.fun)
+      const sizeValidation = validateFileSize(file, 15)
+      if (!sizeValidation.valid) {
+        alert(sizeValidation.error)
+        e.target.value = ''
+        return
+      }
+
       // Show preview immediately (base64 for display)
       const reader = new FileReader()
       reader.onloadend = () => {
@@ -302,7 +339,8 @@ export default function AccountPage() {
       }
       reader.readAsDataURL(file)
       
-      // Store the file for upload to IPFS later
+      // Optimize image before storing (this will happen in background)
+      // Store original for now, optimization happens on save
       setBannerImageFile(file)
     }
   }
@@ -348,12 +386,28 @@ export default function AccountPage() {
       
       if (profileImageFile) {
         try {
+          setUploadProgress(prev => ({ ...prev, profile: 10 }))
+          
+          // Optimize image before upload
+          setOptimizingImages(true)
+          const optimizedFile = await optimizeProfileImage(profileImageFile)
+          setOptimizingImages(false)
+          setUploadProgress(prev => ({ ...prev, profile: 30 }))
+          
           const formData = new FormData()
-          formData.append('file', profileImageFile)
+          formData.append('file', optimizedFile)
           
           // Use AbortController for timeout handling
           const controller = new AbortController()
           const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minute timeout
+          
+          // Simulate upload progress (since we can't track actual progress with fetch)
+          const progressInterval = setInterval(() => {
+            setUploadProgress(prev => ({
+              ...prev,
+              profile: Math.min(prev.profile + 10, 90),
+            }))
+          }, 500)
           
           const uploadResponse = await fetch('/api/upload-image', {
             method: 'POST',
@@ -361,7 +415,9 @@ export default function AccountPage() {
             signal: controller.signal,
           })
           
+          clearInterval(progressInterval)
           clearTimeout(timeoutId)
+          setUploadProgress(prev => ({ ...prev, profile: 100 }))
           
           if (!uploadResponse.ok) {
             const errorData = await uploadResponse.json().catch(() => ({}))
@@ -370,8 +426,10 @@ export default function AccountPage() {
           
           const uploadData = await uploadResponse.json()
           avatarUrl = uploadData.ipfsUrl
+          setUploadProgress(prev => ({ ...prev, profile: 0 }))
         } catch (error: any) {
           console.error('Failed to upload profile image:', error)
+          setUploadProgress(prev => ({ ...prev, profile: 0 }))
           let errorMessage = 'Failed to upload profile image'
           
           if (error.name === 'AbortError') {
@@ -385,18 +443,35 @@ export default function AccountPage() {
           alert(errorMessage)
           setSavingProfile(false)
           setUploadingImages(false)
+          setOptimizingImages(false)
           return
         }
       }
       
       if (bannerImageFile) {
         try {
+          setUploadProgress(prev => ({ ...prev, banner: 10 }))
+          
+          // Optimize image before upload
+          setOptimizingImages(true)
+          const optimizedFile = await optimizeBannerImage(bannerImageFile)
+          setOptimizingImages(false)
+          setUploadProgress(prev => ({ ...prev, banner: 30 }))
+          
           const formData = new FormData()
-          formData.append('file', bannerImageFile)
+          formData.append('file', optimizedFile)
           
           // Use AbortController for timeout handling
           const controller = new AbortController()
           const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minute timeout
+          
+          // Simulate upload progress (since we can't track actual progress with fetch)
+          const progressInterval = setInterval(() => {
+            setUploadProgress(prev => ({
+              ...prev,
+              banner: Math.min(prev.banner + 10, 90),
+            }))
+          }, 500)
           
           const uploadResponse = await fetch('/api/upload-image', {
             method: 'POST',
@@ -404,7 +479,9 @@ export default function AccountPage() {
             signal: controller.signal,
           })
           
+          clearInterval(progressInterval)
           clearTimeout(timeoutId)
+          setUploadProgress(prev => ({ ...prev, banner: 100 }))
           
           if (!uploadResponse.ok) {
             const errorData = await uploadResponse.json().catch(() => ({}))
@@ -413,8 +490,10 @@ export default function AccountPage() {
           
           const uploadData = await uploadResponse.json()
           bannerUrl = uploadData.ipfsUrl
+          setUploadProgress(prev => ({ ...prev, banner: 0 }))
         } catch (error: any) {
           console.error('Failed to upload banner image:', error)
+          setUploadProgress(prev => ({ ...prev, banner: 0 }))
           let errorMessage = 'Failed to upload banner image'
           
           if (error.name === 'AbortError') {
@@ -428,6 +507,7 @@ export default function AccountPage() {
           alert(errorMessage)
           setSavingProfile(false)
           setUploadingImages(false)
+          setOptimizingImages(false)
           return
         }
       }
@@ -822,9 +902,19 @@ export default function AccountPage() {
           <div className="h-48 bg-gradient-to-r from-primary-600/30 to-primary-500/30 relative">
             {displayProfile?.bannerImageUrl || bannerImagePreview ? (
               <img
-                src={bannerImagePreview || displayProfile?.bannerImageUrl}
+                src={bannerImagePreview || (displayProfile?.bannerImageUrl ? getIPFSUrl(displayProfile.bannerImageUrl) : '')}
                 alt="Banner"
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback to next gateway if image fails to load
+                  const img = e.currentTarget
+                  const src = img.src
+                  if (src.includes('gateway.pinata.cloud')) {
+                    img.src = src.replace('gateway.pinata.cloud', 'ipfs.io')
+                  } else if (src.includes('ipfs.io')) {
+                    img.src = src.replace('ipfs.io', 'cloudflare-ipfs.com')
+                  }
+                }}
               />
             ) : null}
             {editingProfile && (
@@ -894,13 +984,49 @@ export default function AccountPage() {
               </button>
             ) : (
               <div className="flex gap-3">
-                <button
-                  onClick={handleSaveProfile}
-                  disabled={savingProfile}
-                  className="bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-6 rounded-lg transition-colors"
-                >
-                  {uploadingImages ? 'Uploading images...' : savingProfile ? 'Saving...' : 'Save Profile'}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={savingProfile || uploadingImages || optimizingImages}
+                    className="bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-6 rounded-lg transition-colors w-full"
+                  >
+                    {optimizingImages ? 'Optimizing images...' : uploadingImages ? 'Uploading images...' : savingProfile ? 'Saving...' : 'Save Profile'}
+                  </button>
+                  
+                  {/* Progress Indicators */}
+                  {(uploadProgress.profile > 0 || uploadProgress.banner > 0) && (
+                    <div className="space-y-1">
+                      {uploadProgress.profile > 0 && (
+                        <div>
+                          <div className="flex justify-between text-xs text-gray-400 mb-1">
+                            <span>Profile Image</span>
+                            <span>{uploadProgress.profile}%</span>
+                          </div>
+                          <div className="w-full bg-gray-800 rounded-full h-1.5">
+                            <div
+                              className="bg-primary-600 h-1.5 rounded-full transition-all duration-300"
+                              style={{ width: `${uploadProgress.profile}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {uploadProgress.banner > 0 && (
+                        <div>
+                          <div className="flex justify-between text-xs text-gray-400 mb-1">
+                            <span>Banner Image</span>
+                            <span>{uploadProgress.banner}%</span>
+                          </div>
+                          <div className="w-full bg-gray-800 rounded-full h-1.5">
+                            <div
+                              className="bg-primary-600 h-1.5 rounded-full transition-all duration-300"
+                              style={{ width: `${uploadProgress.banner}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => {
                     setEditingProfile(false)
