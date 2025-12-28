@@ -581,15 +581,15 @@ export default function AccountPage() {
 
       // Update local state immediately with saved data (faster UI update)
       // Use avatarData/bannerData if available (database storage), otherwise use URL
-      const avatarUrl = savedProfile.avatarData || savedProfile.avatarUrl || ''
-      const bannerUrl = savedProfile.bannerData || savedProfile.bannerUrl || ''
+      const savedAvatarUrl = savedProfile.avatarData || savedProfile.avatarUrl || ''
+      const savedBannerUrl = savedProfile.bannerData || savedProfile.bannerUrl || ''
       
       const updatedProfile: CreatorProfile = {
         walletAddress: savedProfile.walletAddress,
         username: savedProfile.username || '',
         bio: savedProfile.bio || '',
-        profileImageUrl: avatarUrl,
-        bannerImageUrl: bannerUrl,
+        profileImageUrl: savedAvatarUrl,
+        bannerImageUrl: savedBannerUrl,
         socialLinks: {
           website: savedProfile.website,
           twitter: savedProfile.twitter,
