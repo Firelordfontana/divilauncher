@@ -3,6 +3,7 @@ import axios from 'axios'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+export const maxDuration = 300 // 5 minutes (Vercel max is 300s for Pro, 10s for Hobby)
 
 const PINATA_API_KEY = process.env.NEXT_PUBLIC_PINATA_API_KEY || ''
 
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
         },
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
-        timeout: 120000, // 2 minute timeout for large files
+        timeout: 300000, // 5 minute timeout for large files (mobile networks can be slow)
       }
     )
 

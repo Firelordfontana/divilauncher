@@ -351,20 +351,38 @@ export default function AccountPage() {
           const formData = new FormData()
           formData.append('file', profileImageFile)
           
+          // Use AbortController for timeout handling
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minute timeout
+          
           const uploadResponse = await fetch('/api/upload-image', {
             method: 'POST',
             body: formData,
+            signal: controller.signal,
           })
           
+          clearTimeout(timeoutId)
+          
           if (!uploadResponse.ok) {
-            throw new Error('Failed to upload profile image')
+            const errorData = await uploadResponse.json().catch(() => ({}))
+            throw new Error(errorData.error || `Upload failed: ${uploadResponse.statusText}`)
           }
           
           const uploadData = await uploadResponse.json()
           avatarUrl = uploadData.ipfsUrl
         } catch (error: any) {
           console.error('Failed to upload profile image:', error)
-          alert(`Failed to upload profile image: ${error.message}. Please try again.`)
+          let errorMessage = 'Failed to upload profile image'
+          
+          if (error.name === 'AbortError') {
+            errorMessage = 'Upload timed out. The image may be too large or your connection is slow. Please try a smaller image or check your connection.'
+          } else if (error.message) {
+            errorMessage = error.message
+          } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+            errorMessage = 'Network error. Please check your connection and try again.'
+          }
+          
+          alert(errorMessage)
           setSavingProfile(false)
           setUploadingImages(false)
           return
@@ -376,20 +394,38 @@ export default function AccountPage() {
           const formData = new FormData()
           formData.append('file', bannerImageFile)
           
+          // Use AbortController for timeout handling
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minute timeout
+          
           const uploadResponse = await fetch('/api/upload-image', {
             method: 'POST',
             body: formData,
+            signal: controller.signal,
           })
           
+          clearTimeout(timeoutId)
+          
           if (!uploadResponse.ok) {
-            throw new Error('Failed to upload banner image')
+            const errorData = await uploadResponse.json().catch(() => ({}))
+            throw new Error(errorData.error || `Upload failed: ${uploadResponse.statusText}`)
           }
           
           const uploadData = await uploadResponse.json()
           bannerUrl = uploadData.ipfsUrl
         } catch (error: any) {
           console.error('Failed to upload banner image:', error)
-          alert(`Failed to upload banner image: ${error.message}. Please try again.`)
+          let errorMessage = 'Failed to upload banner image'
+          
+          if (error.name === 'AbortError') {
+            errorMessage = 'Upload timed out. The image may be too large or your connection is slow. Please try a smaller image or check your connection.'
+          } else if (error.message) {
+            errorMessage = error.message
+          } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+            errorMessage = 'Network error. Please check your connection and try again.'
+          }
+          
+          alert(errorMessage)
           setSavingProfile(false)
           setUploadingImages(false)
           return
