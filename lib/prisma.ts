@@ -21,13 +21,16 @@ let pool: Pool
 let adapter: PrismaPg
 
 try {
-  // Ensure connection string has sslmode=require if not already present
-  // For forced SSL, we need sslmode=require (or verify-full if certificate is provided)
+  // Configure connection string with SSL and timeout
+  // Supabase works with sslmode=prefer (tries SSL, falls back if not available)
+  // or sslmode=require (requires SSL connection)
   let connectionStringWithSSL = connectionString
   if (!connectionString.includes('sslmode=')) {
+    // Use 'prefer' for flexibility (works with or without Force SSL)
+    // Change to 'require' if you want to enforce SSL
     connectionStringWithSSL = connectionString.includes('?') 
-      ? `${connectionString}&sslmode=require`
-      : `${connectionString}?sslmode=require`
+      ? `${connectionString}&sslmode=prefer`
+      : `${connectionString}?sslmode=prefer`
   }
   
   // Add connection timeout if not present
@@ -37,10 +40,9 @@ try {
       : `${connectionStringWithSSL}?connect_timeout=30`
   }
   
-  // For Supabase with forced SSL:
-  // - If you have the certificate file, use verify-full and provide ca/cert/key
-  // - For serverless (Vercel), use require with rejectUnauthorized: false
-  // This allows connection without storing certificate files
+  // SSL configuration:
+  // - If certificate is provided, use it for verification
+  // - Otherwise, use flexible SSL (works with Force SSL on or off)
   const sslConfig = process.env.SUPABASE_SSL_CERT 
     ? (() => {
         try {
@@ -58,7 +60,7 @@ try {
         }
       })()
     : {
-        // Default: require SSL but don't verify certificate (works for serverless)
+        // Default: prefer SSL but don't verify certificate (works for serverless and with/without Force SSL)
         rejectUnauthorized: false
       }
   
