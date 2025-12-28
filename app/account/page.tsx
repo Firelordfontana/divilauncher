@@ -85,6 +85,8 @@ export default function AccountPage() {
   const [newOwnerWallet, setNewOwnerWallet] = useState('')
   const [solBalance, setSolBalance] = useState<number | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
+  const [showSuccessToast, setShowSuccessToast] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
 
   useEffect(() => {
     // Give wallet adapter time to initialize
@@ -243,38 +245,70 @@ export default function AccountPage() {
     }
   }
 
-  const handleSaveProfile = () => {
-    if (!profileFormData) return
+  const handleSaveProfile = async () => {
+    if (!profileFormData || !wallet.publicKey) return
 
+    setSavingProfile(true)
     try {
-      const profiles = localStorage.getItem('creatorProfiles')
-      const profilesData: CreatorProfile[] = profiles ? JSON.parse(profiles) : []
+      const walletAddress = wallet.publicKey.toBase58()
       
-      const existingIndex = profilesData.findIndex(
-        p => p.walletAddress.toLowerCase() === profileFormData.walletAddress.toLowerCase()
-      )
+      // Prepare profile data for API
+      const profileData = {
+        username: profileFormData.username || null,
+        bio: profileFormData.bio || null,
+        avatarUrl: profileImagePreview || profileFormData.profileImageUrl || null,
+        website: profileFormData.socialLinks?.website || null,
+        twitter: profileFormData.socialLinks?.twitter || null,
+        telegram: profileFormData.socialLinks?.telegram || null,
+        discord: profileFormData.socialLinks?.discord || null,
+      }
 
+      // Save to database via API
+      const response = await fetch(`/api/profiles/${walletAddress}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save profile')
+      }
+
+      const result = await response.json()
+      const savedProfile = result.profile
+
+      // Update local state
       const updatedProfile: CreatorProfile = {
-        ...profileFormData,
-        profileImageUrl: profileImagePreview || profileFormData.profileImageUrl,
-        bannerImageUrl: bannerImagePreview || profileFormData.bannerImageUrl,
+        walletAddress: savedProfile.walletAddress,
+        username: savedProfile.username || '',
+        bio: savedProfile.bio || '',
+        profileImageUrl: savedProfile.avatarUrl || '',
+        bannerImageUrl: profileFormData.bannerImageUrl || '',
+        socialLinks: {
+          website: savedProfile.website,
+          twitter: savedProfile.twitter,
+          telegram: savedProfile.telegram,
+          discord: savedProfile.discord,
+        },
+        createdAt: savedProfile.createdAt || new Date().toISOString(),
       }
 
-      if (existingIndex !== -1) {
-        profilesData[existingIndex] = updatedProfile
-      } else {
-        profilesData.push(updatedProfile)
-      }
-
-      localStorage.setItem('creatorProfiles', JSON.stringify(profilesData))
       setProfile(updatedProfile)
       setEditingProfile(false)
       setProfileImagePreview(null)
       setBannerImagePreview(null)
-      alert('Profile updated successfully!')
-    } catch (err) {
+      
+      // Show success toast
+      setShowSuccessToast(true)
+      setTimeout(() => setShowSuccessToast(false), 3000)
+    } catch (err: any) {
       console.error('Failed to save profile:', err)
-      alert('Failed to save profile')
+      alert(`Failed to save profile: ${err.message}`)
+    } finally {
+      setSavingProfile(false)
     }
   }
 
@@ -1119,6 +1153,31 @@ export default function AccountPage() {
           )}
         </div>
       </div>
+
+      {/* Success Toast Notification */}
+      {showSuccessToast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+          <div className="bg-gradient-to-r from-green-600 to-green-500 text-white px-6 py-4 rounded-lg shadow-2xl border-2 border-green-400/50 flex items-center gap-3 min-w-[300px]">
+            <div className="flex-shrink-0">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-lg">Profile Saved!</p>
+              <p className="text-sm text-green-100">Your profile has been successfully saved to the database.</p>
+            </div>
+            <button
+              onClick={() => setShowSuccessToast(false)}
+              className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
