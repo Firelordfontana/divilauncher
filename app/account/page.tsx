@@ -180,12 +180,16 @@ export default function AccountPage() {
           const dbProfile = data.profile
           
           // Convert database profile to CreatorProfile format
+          // Use avatarData/bannerData if available (database storage), otherwise use URL
+          const avatarUrl = dbProfile.avatarData || dbProfile.avatarUrl || ''
+          const bannerUrl = dbProfile.bannerData || dbProfile.bannerUrl || ''
+          
           const myProfile: CreatorProfile = {
             walletAddress: dbProfile.walletAddress,
             username: dbProfile.username || '',
             bio: dbProfile.bio || '',
-            profileImageUrl: dbProfile.avatarUrl || '',
-            bannerImageUrl: dbProfile.bannerUrl || '',
+            profileImageUrl: avatarUrl,
+            bannerImageUrl: bannerUrl,
             socialLinks: {
               website: dbProfile.website || undefined,
               twitter: dbProfile.twitter || undefined,
