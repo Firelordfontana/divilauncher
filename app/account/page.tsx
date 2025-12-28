@@ -159,32 +159,75 @@ export default function AccountPage() {
     }
   }, [wallet.connected, wallet.publicKey, wallet.connecting, router, hasCheckedWallet, connection])
 
-  const loadProfileAndTokens = () => {
+  const loadProfileAndTokens = async () => {
     try {
       setLoading(true)
       const walletAddress = wallet.publicKey?.toBase58() || ''
       
-      // Load profile
-      const profiles = localStorage.getItem('creatorProfiles')
-      const profilesData: CreatorProfile[] = profiles ? JSON.parse(profiles) : []
-      const myProfile = profilesData.find(p => p.walletAddress.toLowerCase() === walletAddress.toLowerCase())
-      
-      if (!myProfile) {
-        // Create default profile
-        const newProfile: CreatorProfile = {
-          walletAddress,
-          username: '',
-          bio: '',
-          profileImageUrl: '',
-          bannerImageUrl: '',
-          socialLinks: {},
-          createdAt: new Date().toISOString(),
+      // Load profile from database API
+      try {
+        const response = await fetch(`/api/profiles/${walletAddress}`)
+        if (response.ok) {
+          const data = await response.json()
+          const dbProfile = data.profile
+          
+          // Convert database profile to CreatorProfile format
+          const myProfile: CreatorProfile = {
+            walletAddress: dbProfile.walletAddress,
+            username: dbProfile.username || '',
+            bio: dbProfile.bio || '',
+            profileImageUrl: dbProfile.avatarUrl || '',
+            bannerImageUrl: '', // Banner not in DB schema yet
+            socialLinks: {
+              website: dbProfile.website || undefined,
+              twitter: dbProfile.twitter || undefined,
+              telegram: dbProfile.telegram || undefined,
+              discord: dbProfile.discord || undefined,
+            },
+            createdAt: dbProfile.createdAt || new Date().toISOString(),
+          }
+          
+          setProfile(myProfile)
+          setProfileFormData(myProfile)
+        } else if (response.status === 404) {
+          // Profile doesn't exist yet, create default
+          const newProfile: CreatorProfile = {
+            walletAddress,
+            username: '',
+            bio: '',
+            profileImageUrl: '',
+            bannerImageUrl: '',
+            socialLinks: {},
+            createdAt: new Date().toISOString(),
+          }
+          setProfile(newProfile)
+          setProfileFormData(newProfile)
+        } else {
+          throw new Error('Failed to load profile')
         }
-        setProfile(newProfile)
-        setProfileFormData(newProfile)
-      } else {
-        setProfile(myProfile)
-        setProfileFormData(myProfile)
+      } catch (err) {
+        console.error('Failed to load profile from database:', err)
+        // Fallback to localStorage if database fails
+        const profiles = localStorage.getItem('creatorProfiles')
+        const profilesData: CreatorProfile[] = profiles ? JSON.parse(profiles) : []
+        const myProfile = profilesData.find(p => p.walletAddress.toLowerCase() === walletAddress.toLowerCase())
+        
+        if (!myProfile) {
+          const newProfile: CreatorProfile = {
+            walletAddress,
+            username: '',
+            bio: '',
+            profileImageUrl: '',
+            bannerImageUrl: '',
+            socialLinks: {},
+            createdAt: new Date().toISOString(),
+          }
+          setProfile(newProfile)
+          setProfileFormData(newProfile)
+        } else {
+          setProfile(myProfile)
+          setProfileFormData(myProfile)
+        }
       }
       
       // Load all tokens
@@ -300,6 +343,9 @@ export default function AccountPage() {
       setEditingProfile(false)
       setProfileImagePreview(null)
       setBannerImagePreview(null)
+      
+      // Reload profile from database to ensure we have latest data
+      await loadProfileAndTokens()
       
       // Show success toast
       setShowSuccessToast(true)
