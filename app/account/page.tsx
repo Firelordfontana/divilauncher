@@ -941,9 +941,19 @@ export default function AccountPage() {
             <div className="relative">
               {displayProfile?.profileImageUrl || profileImagePreview ? (
                 <img
-                  src={profileImagePreview || displayProfile?.profileImageUrl}
+                  src={profileImagePreview || (displayProfile?.profileImageUrl ? getIPFSUrl(displayProfile.profileImageUrl) : '')}
                   alt="Profile"
                   className="w-32 h-32 rounded-full object-cover border-4 border-black"
+                  onError={(e) => {
+                    // Fallback to next gateway if image fails to load
+                    const img = e.currentTarget
+                    const src = img.src
+                    if (src.includes('gateway.pinata.cloud')) {
+                      img.src = src.replace('gateway.pinata.cloud', 'ipfs.io')
+                    } else if (src.includes('ipfs.io')) {
+                      img.src = src.replace('ipfs.io', 'cloudflare-ipfs.com')
+                    }
+                  }}
                 />
               ) : (
                 <div className="w-32 h-32 rounded-full bg-primary-600/30 border-4 border-black flex items-center justify-center">
