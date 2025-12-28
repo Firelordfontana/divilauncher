@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 10, 10, 10;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Ensure all inputs and textareas have dark backgrounds */
+input, textarea, select {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+/* File input styling */
+input[type="file"] {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+input[type="file"]::file-selector-button {
+  background-color: #f59e0b !important;
+  color: #000000 !important;
+  border: 1px solid #f59e0b !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.5rem !important;
+  margin-right: 0.75rem !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background-color: #d97706 !important;
+}
+
+/* Handle autofill styling */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+select:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #000000 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+/* Show number input spinners on mobile and desktop */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: inner-spin-button !important;
+  opacity: 1 !important;
+  display: inline-block !important;
+  cursor: pointer !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  margin-right: 0.5rem !important;
+}
+
+

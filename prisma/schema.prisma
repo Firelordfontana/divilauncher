@@ -1,0 +1,81 @@
+// Prisma Schema for DiviLauncher
+// This schema defines the database models for tokens, profiles, allocations, and ownership transfers
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Token {
+  id                      String   @id @default(cuid())
+  tokenAddress            String   @unique
+  name                    String
+  ticker                  String
+  description             String?
+  imageUrl                String?
+  bannerUrl               String?
+  launchDate              DateTime @default(now())
+  creatorWallet           String
+  currentOwnerWallet      String
+  platformFeePercent      Float    @default(2.0)
+  rewardDistributionPercent Float  @default(0)
+  burnPercent             Float    @default(0)
+  burnToken               String?  // Optional: Token to buy back and burn
+  rewardToken             String?
+  initialBuyAmount        Float
+  socialLinks             Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  allocations             Allocation[]
+  ownershipTransfers      OwnershipTransfer[]
+  
+  @@index([creatorWallet])
+  @@index([currentOwnerWallet])
+  @@map("tokens")
+}
+
+model Allocation {
+  id                      String   @id @default(cuid())
+  tokenId                 String
+  token                   Token    @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  platformFeePercent      Float
+  rewardDistributionPercent Float
+  burnPercent             Float
+  date                    DateTime @default(now())
+  
+  @@index([tokenId])
+  @@map("allocations")
+}
+
+model OwnershipTransfer {
+  id                      String   @id @default(cuid())
+  tokenId                 String
+  token                   Token    @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  fromWallet              String
+  toWallet                String
+  fee                     Float
+  date                    DateTime @default(now())
+  
+  @@index([tokenId])
+  @@index([toWallet])
+  @@map("ownership_transfers")
+}
+
+model CreatorProfile {
+  id                      String   @id @default(cuid())
+  walletAddress           String   @unique
+  username                String?
+  profileImageUrl         String?
+  bannerImageUrl          String?
+  bio                     String?
+  socialLinks             Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  @@index([walletAddress])
+  @@map("creator_profiles")
+}

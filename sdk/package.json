@@ -1,0 +1,36 @@
+{
+  "name": "@divilauncher/sdk",
+  "version": "1.0.0",
+  "description": "JavaScript/TypeScript SDK for DiviLauncher API",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "lint": "eslint src"
+  },
+  "keywords": [
+    "solana",
+    "token",
+    "launcher",
+    "divi",
+    "dividend"
+  ],
+  "author": "DiviLauncher",
+  "license": "MIT",
+  "dependencies": {
+    "@solana/web3.js": "^1.87.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3",
+    "rollup": "^4.0.0",
+    "@rollup/plugin-typescript": "^11.1.5"
+  },
+  "peerDependencies": {
+    "@solana/wallet-adapter-react": "^0.15.35"
+  }
+}
+
