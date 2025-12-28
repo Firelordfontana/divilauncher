@@ -1,18 +1,27 @@
+import { TokenLaunchForm } from '@/components/TokenLaunchForm'
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white">
       <div className="container mx-auto px-4 py-16">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-6xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
-            DiviLauncher
-          </h1>
-          <p className="text-xl text-gray-300 mb-8">
-            Solana Token Launchpad
-          </p>
-          <p className="text-gray-400 mb-12 max-w-2xl mx-auto">
-            Launch your token on Solana with customizable features, dividend distribution, and automated reward systems.
-          </p>
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-6xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+              DiviLauncher
+            </h1>
+            <p className="text-xl text-gray-300 mb-4">
+              Solana Token Launchpad
+            </p>
+            <p className="text-gray-400 max-w-2xl mx-auto">
+              Launch your token on Solana with customizable features, dividend distribution, and automated reward systems.
+            </p>
+          </div>
           
+          <div className="bg-gray-800/50 rounded-xl p-8 border border-gray-700 shadow-2xl">
+            <h2 className="text-2xl font-semibold mb-6">Launch Your Token</h2>
+            <TokenLaunchForm />
+          </div>
+
           <div className="grid md:grid-cols-3 gap-6 mt-12">
             <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
               <h3 className="text-xl font-semibold mb-2">Easy Launch</h3>
