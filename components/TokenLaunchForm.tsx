@@ -25,6 +25,7 @@ interface TokenFormData {
   burnToken: string // Optional: Token to buy back and burn (defaults to created token if empty)
   dividendToken: string // Token to convert funds into for rewards
   initialBuyAmount: number // Amount of SOL for initial buy (minimum 0.05)
+  initialOwnerWallet: string // Optional: transfer ownership to another wallet on launch
 }
 
 export default function TokenLaunchForm() {
