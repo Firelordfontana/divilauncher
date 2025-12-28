@@ -711,9 +711,10 @@ export default function AccountPage() {
               <div className="flex gap-3">
                 <button
                   onClick={handleSaveProfile}
-                  className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                  disabled={savingProfile}
+                  className="bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-6 rounded-lg transition-colors"
                 >
-                  Save Profile
+                  {savingProfile ? 'Saving...' : 'Save Profile'}
                 </button>
                 <button
                   onClick={() => {
