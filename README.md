@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # DiviLauncher
 
 A Solana token launchpad that allows users to create and launch tokens with customizable features, tax rates, and dividend distribution.
@@ -201,3 +202,7 @@ MIT License - feel free to use this project for your own purposes.
 
 This software is provided "as is" without warranty. Use at your own risk. Always do your own research before investing in any cryptocurrency or token.
 
+=======
+# divilauncher
+Launcher for pump.fun to add dividend and burn allocations for creator rewards
+>>>>>>> fbf56a799fb6d4286e2305f251cf470cb80db30f
