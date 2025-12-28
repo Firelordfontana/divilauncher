@@ -22,6 +22,7 @@ let adapter: PrismaPg
 
 try {
   // Ensure connection string has sslmode=require if not already present
+  // For forced SSL, we need sslmode=require (or verify-full if certificate is provided)
   let connectionStringWithSSL = connectionString
   if (!connectionString.includes('sslmode=')) {
     connectionStringWithSSL = connectionString.includes('?') 
@@ -29,11 +30,22 @@ try {
       : `${connectionString}?sslmode=require`
   }
   
+  // For Supabase with forced SSL:
+  // - If you have the certificate file, use verify-full and provide ca/cert/key
+  // - For serverless (Vercel), use require with rejectUnauthorized: false
+  // This allows connection without storing certificate files
   pool = new Pool({ 
     connectionString: connectionStringWithSSL,
-    ssl: {
-      rejectUnauthorized: false // Supabase uses self-signed certificates
-    }
+    ssl: process.env.SUPABASE_SSL_CERT 
+      ? {
+          // If certificate is provided via environment variable (base64 encoded)
+          ca: Buffer.from(process.env.SUPABASE_SSL_CERT, 'base64').toString(),
+          rejectUnauthorized: true
+        }
+      : {
+          // Default: require SSL but don't verify certificate (works for serverless)
+          rejectUnauthorized: false
+        }
   })
   adapter = new PrismaPg(pool)
 } catch (error) {
