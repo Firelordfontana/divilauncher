@@ -68,16 +68,17 @@ export async function PUT(
     }
 
     // Validate that URLs are valid (should be IPFS URLs, not base64)
-    // If it's a base64 string (starts with data:), reject it
+    // Only reject if it's a base64 string AND it's not empty
+    // Allow null/empty values (user can remove images)
     if (avatarUrl && avatarUrl.startsWith('data:')) {
       return NextResponse.json(
-        { error: 'Avatar image must be uploaded to IPFS first. Please select an image file to upload.' },
+        { error: 'Avatar image must be uploaded to IPFS first. Please select an image file to upload, or leave it empty to keep the existing image.' },
         { status: 400 }
       )
     }
     if (bannerUrl && bannerUrl.startsWith('data:')) {
       return NextResponse.json(
-        { error: 'Banner image must be uploaded to IPFS first. Please select an image file to upload.' },
+        { error: 'Banner image must be uploaded to IPFS first. Please select an image file to upload, or leave it empty to keep the existing image.' },
         { status: 400 }
       )
     }

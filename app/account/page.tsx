@@ -316,8 +316,14 @@ export default function AccountPage() {
       const walletAddress = wallet.publicKey.toBase58()
       
       // Upload images to IPFS if new files were selected
-      let avatarUrl = profileFormData.profileImageUrl || null
-      let bannerUrl = profileFormData.bannerImageUrl || null
+      // Use existing URLs if no new file was selected, otherwise upload new file
+      let avatarUrl = profileImageFile 
+        ? null // Will be set after upload
+        : (profileFormData.profileImageUrl || null) // Use existing URL
+      
+      let bannerUrl = bannerImageFile 
+        ? null // Will be set after upload
+        : (profileFormData.bannerImageUrl || null) // Use existing URL
       
       if (profileImageFile) {
         try {
