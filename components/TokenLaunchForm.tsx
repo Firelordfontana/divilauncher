@@ -746,78 +746,78 @@ export default function TokenLaunchForm() {
                 </div>
               </div>
             </div>
-
-            {/* Initial Buy Amount */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-semibold text-primary-400">Initial Buy Amount</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowInitialBuyInfo(!showInitialBuyInfo)}
-                  className="w-5 h-5 rounded-full bg-primary-900/30 border border-primary-600/50 text-primary-400 hover:bg-primary-900/50 flex items-center justify-center text-xs font-bold transition-colors"
-                  aria-label="Toggle initial buy information"
-                >
-                  ?
-                </button>
-              </div>
-              
-              {showInitialBuyInfo && (
-                <div className="bg-primary-900/20 border border-primary-600/30 rounded-lg p-4 mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <p className="text-sm text-gray-300">
-                    <strong>Why 0.05 SOL minimum?</strong> This amount covers all fees required to launch and make your token visible on-chain:
-                  </p>
-                  <ul className="text-xs text-gray-300 mt-2 list-disc list-inside space-y-1">
-                    <li><strong>Gas fees:</strong> ~0.005 SOL for transaction costs</li>
-                    <li><strong>First buy fee:</strong> 0.02 SOL required by PumpFun to make token visible</li>
-                    <li><strong>Safety buffer:</strong> 0.015 SOL for fee fluctuations and future transactions</li>
-                    <li><strong>Initial buy:</strong> Remaining amount goes toward the actual token purchase</li>
-                  </ul>
-                  <p className="text-xs text-gray-300 mt-2">
-                    You can add more than 0.05 SOL if you want a larger initial buy, which can help with token visibility and initial liquidity.
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-300">
-                  Initial Buy Amount (SOL)
-                </label>
-                <input
-                  type="text"
-                  name="initialBuyAmount"
-                  value={!initialBuyTouched && formData.initialBuyAmount === 0.05 ? '' : (initialBuyDisplay || formData.initialBuyAmount.toString())}
-                  onChange={(e) => {
-                    setInitialBuyTouched(true)
-                    handleInputChange(e)
-                  }}
-                  onFocus={() => {
-                    setInitialBuyTouched(true)
-                    if (formData.initialBuyAmount === 0.05) {
-                      setInitialBuyDisplay('')
-                    }
-                  }}
-                  onBlur={() => {
-                    // On blur, ensure we have a valid number
-                    if (initialBuyDisplay === '' || initialBuyDisplay === '.') {
-                      setInitialBuyDisplay('0.05')
-                      setFormData(prev => ({ ...prev, initialBuyAmount: 0.05 }))
-                    } else {
-                      const numValue = parseFloat(initialBuyDisplay) || 0.05
-                      setFormData(prev => ({ ...prev, initialBuyAmount: numValue }))
-                      setInitialBuyDisplay(numValue.toString())
-                    }
-                  }}
-                  required
-                  className="w-full px-4 py-2.5 border border-primary-600/30 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-black text-white placeholder:text-gray-500"
-                  placeholder="Min 0.05"
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  Minimum 0.05 SOL required to cover all launch fees and make token visible on-chain
-                </p>
-              </div>
-            </div>
           </div>
         )}
+
+        {/* Initial Buy Amount */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xl font-semibold text-primary-400">Initial Buy Amount</h3>
+            <button
+              type="button"
+              onClick={() => setShowInitialBuyInfo(!showInitialBuyInfo)}
+              className="w-5 h-5 rounded-full bg-primary-900/30 border border-primary-600/50 text-primary-400 hover:bg-primary-900/50 flex items-center justify-center text-xs font-bold transition-colors"
+              aria-label="Toggle initial buy information"
+            >
+              ?
+            </button>
+          </div>
+          
+          {showInitialBuyInfo && (
+            <div className="bg-primary-900/20 border border-primary-600/30 rounded-lg p-4 mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <p className="text-sm text-gray-300">
+                <strong>Why 0.05 SOL minimum?</strong> This amount covers all fees required to launch and make your token visible on-chain:
+              </p>
+              <ul className="text-xs text-gray-300 mt-2 list-disc list-inside space-y-1">
+                <li><strong>Gas fees:</strong> ~0.005 SOL for transaction costs</li>
+                <li><strong>First buy fee:</strong> 0.02 SOL required by PumpFun to make token visible</li>
+                <li><strong>Safety buffer:</strong> 0.015 SOL for fee fluctuations and future transactions</li>
+                <li><strong>Initial buy:</strong> Remaining amount goes toward the actual token purchase</li>
+              </ul>
+              <p className="text-xs text-gray-300 mt-2">
+                You can add more than 0.05 SOL if you want a larger initial buy, which can help with token visibility and initial liquidity.
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300">
+              Initial Buy Amount (SOL)
+            </label>
+            <input
+              type="text"
+              name="initialBuyAmount"
+              value={!initialBuyTouched && formData.initialBuyAmount === 0.05 ? '' : (initialBuyDisplay || formData.initialBuyAmount.toString())}
+              onChange={(e) => {
+                setInitialBuyTouched(true)
+                handleInputChange(e)
+              }}
+              onFocus={() => {
+                setInitialBuyTouched(true)
+                if (formData.initialBuyAmount === 0.05) {
+                  setInitialBuyDisplay('')
+                }
+              }}
+              onBlur={() => {
+                // On blur, ensure we have a valid number
+                if (initialBuyDisplay === '' || initialBuyDisplay === '.') {
+                  setInitialBuyDisplay('0.05')
+                  setFormData(prev => ({ ...prev, initialBuyAmount: 0.05 }))
+                } else {
+                  const numValue = parseFloat(initialBuyDisplay) || 0.05
+                  setFormData(prev => ({ ...prev, initialBuyAmount: numValue }))
+                  setInitialBuyDisplay(numValue.toString())
+                }
+              }}
+              required
+              className="w-full px-4 py-2.5 border border-primary-600/30 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-black text-white placeholder:text-gray-500"
+              placeholder="Min 0.05"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Minimum 0.05 SOL required to cover all launch fees and make token visible on-chain
+            </p>
+          </div>
+        </div>
 
 
         {/* Error and Success Messages */}
