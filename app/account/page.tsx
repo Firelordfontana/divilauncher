@@ -519,10 +519,10 @@ export default function AccountPage() {
           
           if (error.name === 'AbortError') {
             errorMessage = 'Upload timed out. The image may be too large or your connection is slow. Please try a smaller image or check your connection.'
+          } else if (error.message?.includes('network') || error.message?.includes('fetch') || error.message?.includes('Network')) {
+            errorMessage = 'Network error. Please check your connection and try again.'
           } else if (error.message) {
             errorMessage = error.message
-          } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-            errorMessage = 'Network error. Please check your connection and try again.'
           }
           
           alert(errorMessage)
