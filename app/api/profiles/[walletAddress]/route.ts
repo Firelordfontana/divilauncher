@@ -67,18 +67,22 @@ export async function PUT(
       )
     }
 
+    // Normalize empty strings to null
+    const normalizedAvatarUrl = avatarUrl && avatarUrl.trim() !== '' ? avatarUrl : null
+    const normalizedBannerUrl = bannerUrl && bannerUrl.trim() !== '' ? bannerUrl : null
+    
     // Validate that URLs are valid (should be IPFS URLs, not base64)
-    // Only reject if it's a base64 string AND it's not empty
+    // Only reject if it's a base64 string
     // Allow null/empty values (user can remove images)
-    if (avatarUrl && avatarUrl.startsWith('data:')) {
+    if (normalizedAvatarUrl && normalizedAvatarUrl.startsWith('data:')) {
       return NextResponse.json(
-        { error: 'Avatar image must be uploaded to IPFS first. Please select an image file to upload, or leave it empty to keep the existing image.' },
+        { error: 'Avatar image must be uploaded to IPFS first. Please select an image file to upload.' },
         { status: 400 }
       )
     }
-    if (bannerUrl && bannerUrl.startsWith('data:')) {
+    if (normalizedBannerUrl && normalizedBannerUrl.startsWith('data:')) {
       return NextResponse.json(
-        { error: 'Banner image must be uploaded to IPFS first. Please select an image file to upload, or leave it empty to keep the existing image.' },
+        { error: 'Banner image must be uploaded to IPFS first. Please select an image file to upload.' },
         { status: 400 }
       )
     }
@@ -89,8 +93,8 @@ export async function PUT(
       update: {
         username: username !== undefined ? username : undefined,
         bio: bio !== undefined ? bio : undefined,
-        avatarUrl: avatarUrl !== undefined ? avatarUrl : undefined,
-        bannerUrl: bannerUrl !== undefined ? bannerUrl : undefined,
+        avatarUrl: normalizedAvatarUrl !== undefined ? normalizedAvatarUrl : undefined,
+        bannerUrl: normalizedBannerUrl !== undefined ? normalizedBannerUrl : undefined,
         website: website !== undefined ? website : undefined,
         twitter: twitter !== undefined ? twitter : undefined,
         telegram: telegram !== undefined ? telegram : undefined,
@@ -101,8 +105,8 @@ export async function PUT(
         walletAddress,
         username: username || null,
         bio: bio || null,
-        avatarUrl: avatarUrl || null,
-        bannerUrl: bannerUrl || null,
+        avatarUrl: normalizedAvatarUrl,
+        bannerUrl: normalizedBannerUrl,
         website: website || null,
         twitter: twitter || null,
         telegram: telegram || null,

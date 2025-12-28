@@ -317,13 +317,34 @@ export default function AccountPage() {
       
       // Upload images to IPFS if new files were selected
       // Use existing URLs if no new file was selected, otherwise upload new file
-      let avatarUrl = profileImageFile 
-        ? null // Will be set after upload
-        : (profileFormData.profileImageUrl || null) // Use existing URL
+      // Convert empty strings to null, and ensure we're not using base64 previews
+      let avatarUrl: string | null = null
+      if (profileImageFile) {
+        // New file selected - will upload to IPFS
+        avatarUrl = null // Will be set after upload
+      } else {
+        // No new file - use existing URL (but not if it's base64 or empty)
+        const existingUrl = profileFormData.profileImageUrl
+        if (existingUrl && existingUrl.trim() !== '' && !existingUrl.startsWith('data:')) {
+          avatarUrl = existingUrl
+        } else {
+          avatarUrl = null // No existing valid URL
+        }
+      }
       
-      let bannerUrl = bannerImageFile 
-        ? null // Will be set after upload
-        : (profileFormData.bannerImageUrl || null) // Use existing URL
+      let bannerUrl: string | null = null
+      if (bannerImageFile) {
+        // New file selected - will upload to IPFS
+        bannerUrl = null // Will be set after upload
+      } else {
+        // No new file - use existing URL (but not if it's base64 or empty)
+        const existingUrl = profileFormData.bannerImageUrl
+        if (existingUrl && existingUrl.trim() !== '' && !existingUrl.startsWith('data:')) {
+          bannerUrl = existingUrl
+        } else {
+          bannerUrl = null // No existing valid URL
+        }
+      }
       
       if (profileImageFile) {
         try {
