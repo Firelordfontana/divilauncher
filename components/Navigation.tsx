@@ -37,13 +37,74 @@ export default function Navigation() {
 
   useEffect(() => {
     if (wallet.connected && wallet.publicKey) {
-      // Load profile
-      const profiles = localStorage.getItem('creatorProfiles')
-      const profilesData: CreatorProfile[] = profiles ? JSON.parse(profiles) : []
-      const userProfile = profilesData.find(
-        p => p.walletAddress.toLowerCase() === wallet.publicKey?.toBase58().toLowerCase()
-      )
-      setProfile(userProfile || null)
+      // Load profile from database API
+      const loadProfile = async () => {
+        try {
+          const walletAddress = wallet.publicKey?.toBase58()
+          if (!walletAddress) return
+          
+          const response = await fetch(`/api/profiles/${walletAddress}`)
+          if (response.ok) {
+            const data = await response.json()
+            const dbProfile = data.profile
+            
+            // Use avatarData if available (database storage), otherwise use avatarUrl
+            const avatarUrl = dbProfile.avatarData || dbProfile.avatarUrl || ''
+            
+            const userProfile: CreatorProfile = {
+              walletAddress: dbProfile.walletAddress,
+              username: dbProfile.username || '',
+              profileImageUrl: avatarUrl,
+            }
+            setProfile(userProfile)
+            
+            // Also update localStorage for backward compatibility
+            const profiles = localStorage.getItem('creatorProfiles')
+            const profilesData: CreatorProfile[] = profiles ? JSON.parse(profiles) : []
+            const existingIndex = profilesData.findIndex(
+              p => p.walletAddress.toLowerCase() === walletAddress.toLowerCase()
+            )
+            if (existingIndex !== -1) {
+              profilesData[existingIndex] = userProfile
+            } else {
+              profilesData.push(userProfile)
+            }
+            localStorage.setItem('creatorProfiles', JSON.stringify(profilesData))
+          } else if (response.status === 404) {
+            // Profile doesn't exist yet
+            setProfile(null)
+          }
+        } catch (err) {
+          console.error('Failed to load profile in Navigation:', err)
+          // Fallback to localStorage
+          const profiles = localStorage.getItem('creatorProfiles')
+          const profilesData: CreatorProfile[] = profiles ? JSON.parse(profiles) : []
+          const userProfile = profilesData.find(
+            p => p.walletAddress.toLowerCase() === wallet.publicKey?.toBase58().toLowerCase()
+          )
+          setProfile(userProfile || null)
+        }
+      }
+      
+      loadProfile()
+      
+      // Listen for profile updates (custom event from account page)
+      const handleProfileUpdate = (event: CustomEvent) => {
+        const updatedProfile = event.detail as CreatorProfile
+        if (updatedProfile.walletAddress.toLowerCase() === wallet.publicKey?.toBase58().toLowerCase()) {
+          setProfile(updatedProfile)
+        }
+      }
+      
+      window.addEventListener('profileUpdated', handleProfileUpdate as EventListener)
+      
+      // Refresh profile periodically (every 30 seconds)
+      const profileInterval = setInterval(loadProfile, 30000)
+      
+      return () => {
+        window.removeEventListener('profileUpdated', handleProfileUpdate as EventListener)
+        clearInterval(profileInterval)
+      }
 
       // Fetch SOL balance
       const fetchBalance = async () => {
@@ -179,9 +240,23 @@ export default function Navigation() {
               {/* Profile Image */}
               {profile?.profileImageUrl ? (
                 <img
-                  src={profile.profileImageUrl}
+                  src={profile.profileImageUrl.startsWith('data:') 
+                    ? profile.profileImageUrl 
+                    : profile.profileImageUrl}
                   alt="Profile"
                   className="w-8 h-8 rounded-full object-cover"
+                  onError={(e) => {
+                    // If image fails to load, show placeholder
+                    const img = e.currentTarget
+                    img.style.display = 'none'
+                    const parent = img.parentElement
+                    if (parent) {
+                      const placeholder = document.createElement('div')
+                      placeholder.className = 'w-8 h-8 rounded-full bg-primary-600/30 flex items-center justify-center'
+                      placeholder.innerHTML = `<span class="text-xs text-primary-400 font-bold">${wallet.publicKey?.toBase58().charAt(0).toUpperCase()}</span>`
+                      parent.insertBefore(placeholder, img)
+                    }
+                  }}
                 />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-primary-600/30 flex items-center justify-center">

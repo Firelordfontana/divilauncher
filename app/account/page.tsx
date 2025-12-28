@@ -608,6 +608,9 @@ export default function AccountPage() {
       setProfileImageFile(null)
       setBannerImageFile(null)
       
+      // Notify Navigation component of profile update
+      window.dispatchEvent(new CustomEvent('profileUpdated', { detail: updatedProfile }))
+      
       // Reload profile from database in background (for consistency, but don't wait)
       loadProfileAndTokens().catch(err => {
         console.error('Background profile reload failed:', err)
