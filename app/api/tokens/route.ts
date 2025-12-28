@@ -3,10 +3,22 @@ import { prisma } from '@/lib/prisma'
 import { prismaTokenToTokenInfo } from '@/lib/db-helpers'
 import { PublicKey } from '@solana/web3.js'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 // GET /api/tokens - List all tokens
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    // Check if DATABASE_URL is set
+    if (!process.env.DATABASE_URL) {
+      console.error('DATABASE_URL environment variable is not set')
+      return NextResponse.json(
+        { error: 'Database not configured', details: 'DATABASE_URL environment variable is missing' },
+        { status: 500 }
+      )
+    }
+
+    const { searchParams } = request.nextUrl
     const owner = searchParams.get('owner')
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
@@ -63,6 +75,22 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('Failed to fetch tokens:', error)
+    
+    // Provide more specific error messages
+    if (error.message?.includes('DATABASE_URL') || error.message?.includes('environment variable')) {
+      return NextResponse.json(
+        { error: 'Database configuration error', details: 'DATABASE_URL environment variable is not set. Please configure it in Vercel.' },
+        { status: 500 }
+      )
+    }
+    
+    if (error.message?.includes('Can\'t reach database') || error.message?.includes('connection')) {
+      return NextResponse.json(
+        { error: 'Database connection failed', details: 'Unable to connect to database. Please check your DATABASE_URL and database server status.' },
+        { status: 500 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch tokens', details: error.message },
       { status: 500 }
