@@ -47,20 +47,48 @@ export async function POST(request: NextRequest) {
     })
     pinataFormData.append('pinataOptions', pinataOptions)
 
-    // Upload to Pinata
-    const response = await axios.post(
-      'https://api.pinata.cloud/pinning/pinFileToIPFS',
-      pinataFormData,
-      {
-        headers: {
-          'Authorization': `Bearer ${PINATA_API_KEY}`,
-          'Content-Type': 'multipart/form-data',
-        },
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-        timeout: 300000, // 5 minute timeout for large files (mobile networks can be slow)
+    // Upload to Pinata with retry logic for mobile networks
+    let response
+    let lastError
+    const maxRetries = 3
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        response = await axios.post(
+          'https://api.pinata.cloud/pinning/pinFileToIPFS',
+          pinataFormData,
+          {
+            headers: {
+              'Authorization': `Bearer ${PINATA_API_KEY}`,
+              'Content-Type': 'multipart/form-data',
+            },
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+            timeout: 300000, // 5 minute timeout for large files (mobile networks can be slow)
+          }
+        )
+        break // Success, exit retry loop
+      } catch (error: any) {
+        lastError = error
+        console.log(`Upload attempt ${attempt}/${maxRetries} failed:`, error.message)
+        
+        // Don't retry on certain errors
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          throw error // Auth errors shouldn't be retried
+        }
+        
+        // Wait before retrying (exponential backoff)
+        if (attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000) // Max 5 seconds
+          console.log(`Retrying upload in ${delay}ms...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
       }
-    )
+    }
+    
+    if (!response) {
+      throw lastError || new Error('Upload failed after retries')
+    }
 
     const ipfsHash = response.data.IpfsHash
     const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`
