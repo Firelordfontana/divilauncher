@@ -22,10 +22,14 @@ let adapter: PrismaPg
 
 try {
   // Configure connection string with SSL and timeout
-  // Supabase works with sslmode=prefer (tries SSL, falls back if not available)
-  // or sslmode=require (requires SSL connection)
+  // For Supabase connection pooling (pgbouncer), we need to handle it differently
+  const isPooler = connectionString.includes('pooler.supabase.com') || connectionString.includes('pgbouncer=true')
+  
   let connectionStringWithSSL = connectionString
-  if (!connectionString.includes('sslmode=')) {
+  
+  // For pooler connections, pgbouncer=true is already in the URL
+  // For direct connections, add sslmode
+  if (!isPooler && !connectionString.includes('sslmode=')) {
     // Use 'prefer' for flexibility (works with or without Force SSL)
     // Change to 'require' if you want to enforce SSL
     connectionStringWithSSL = connectionString.includes('?') 
@@ -33,8 +37,8 @@ try {
       : `${connectionString}?sslmode=prefer`
   }
   
-  // Add connection timeout if not present
-  if (!connectionStringWithSSL.includes('connect_timeout=')) {
+  // Add connection timeout if not present (pooler handles this differently)
+  if (!connectionStringWithSSL.includes('connect_timeout=') && !isPooler) {
     connectionStringWithSSL = connectionStringWithSSL.includes('?') 
       ? `${connectionStringWithSSL}&connect_timeout=30`
       : `${connectionStringWithSSL}?connect_timeout=30`

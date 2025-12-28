@@ -6,7 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")      // Connection pooler URL (for queries)
+  directUrl = env("DIRECT_URL")        // Direct connection URL (for migrations)
 }
 
 model Token {
