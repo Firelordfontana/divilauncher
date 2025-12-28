@@ -68,3 +68,4 @@ Should return:
 - ✅ **Faster** - Reuses connections efficiently
 - ✅ **Recommended by Supabase** for Vercel/serverless
 
+

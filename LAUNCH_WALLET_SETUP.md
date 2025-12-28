@@ -227,3 +227,4 @@ export async function launchToken(tokenData: TokenData) {
 - Verify network (mainnet vs devnet)
 - Check RPC endpoint is working
 
+

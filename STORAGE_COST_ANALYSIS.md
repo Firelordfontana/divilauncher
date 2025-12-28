@@ -74,3 +74,4 @@
 - Use IPFS for token images (public, larger files)
 - Make it configurable via environment variable
 
+

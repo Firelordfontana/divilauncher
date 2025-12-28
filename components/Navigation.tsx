@@ -5,6 +5,7 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useRouter, usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { fetchBalanceWithFallback } from '@/utils/solscanBalance'
 
 // Dynamically import WalletMultiButton for connect functionality
 const WalletMultiButton = dynamic(
@@ -100,47 +101,43 @@ export default function Navigation() {
       
       // Refresh profile periodically (every 30 seconds)
       const profileInterval = setInterval(loadProfile, 30000)
-      
-      return () => {
-        window.removeEventListener('profileUpdated', handleProfileUpdate as EventListener)
-        clearInterval(profileInterval)
-      }
 
-      // Fetch SOL balance
+      // Fetch SOL balance using Solscan API (free, no rate limits)
       const fetchBalance = async () => {
-        if (!wallet.publicKey || !connection) return
+        if (!wallet.publicKey) return
         try {
-          const balance = await Promise.race([
-            connection.getBalance(wallet.publicKey),
-            new Promise<number>((_, reject) => 
-              setTimeout(() => reject(new Error('Balance fetch timeout')), 10000)
-            )
-          ])
-          setSolBalance(balance / LAMPORTS_PER_SOL)
-        } catch (err: any) {
-          // Silently handle rate limit errors - don't spam console
-          const isRateLimit = err?.message?.includes('403') || 
-                             err?.message?.includes('rate limit') ||
-                             err?.message?.includes('Forbidden') ||
-                             err?.code === 403
+          const walletAddress = wallet.publicKey.toBase58()
           
-          if (!isRateLimit) {
-            // Only log non-rate-limit errors
-            console.error('Failed to fetch balance:', err)
+          // Use Solscan API with RPC fallback
+          const balance = await fetchBalanceWithFallback(
+            walletAddress,
+            connection,
+            wallet.publicKey
+          )
+          
+          if (balance !== null) {
+            setSolBalance(balance)
           }
-          // Don't clear balance on rate limit - keep previous value if available
+          // If balance is null, keep previous value (don't clear it)
+        } catch (err: any) {
+          // Silently handle errors - don't spam console
+          console.warn('Failed to fetch balance:', err.message)
+          // Don't clear balance - keep previous value if available
         }
       }
       
       // Fetch with delay
       const balanceTimer = setTimeout(fetchBalance, 1000)
 
-      // Refresh balance periodically (longer interval to avoid rate limits)
-      // Increased to 60 seconds to reduce rate limit issues
-      const interval = setInterval(fetchBalance, 60000) // Every 60 seconds
+      // Refresh balance every 10 seconds using Solscan (free, no rate limits)
+      const balanceInterval = setInterval(fetchBalance, 10000) // Every 10 seconds
+      
+      // Return cleanup function for all intervals and listeners
       return () => {
+        window.removeEventListener('profileUpdated', handleProfileUpdate as EventListener)
+        clearInterval(profileInterval)
         clearTimeout(balanceTimer)
-        clearInterval(interval)
+        clearInterval(balanceInterval)
       }
     } else {
       setSolBalance(null)

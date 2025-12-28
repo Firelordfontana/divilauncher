@@ -217,3 +217,4 @@ export async function POST(request: NextRequest) {
 
 Your critical secrets (database passwords and wallet private key) are already properly protected! 🎉
 
+

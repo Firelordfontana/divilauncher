@@ -71,8 +71,6 @@ model Profile {
   bio           String?
   avatarUrl     String?  // IPFS URL or base64 data URI
   avatarData    String?  // Base64 compressed image (if using DB storage)
-  bannerUrl     String?  // IPFS URL or base64 data URI
-  bannerData    String?  // Base64 compressed image (if using DB storage)
   website       String?
   twitter       String?
   telegram      String?

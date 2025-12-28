@@ -93,3 +93,4 @@ export async function uploadBase64ImageToIPFS(
   return uploadImageToIPFS(file)
 }
 
+

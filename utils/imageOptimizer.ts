@@ -75,17 +75,6 @@ export async function optimizeProfileImage(file: File): Promise<File> {
 }
 
 /**
- * Optimize a banner image (larger size)
- */
-export async function optimizeBannerImage(file: File): Promise<File> {
-  return optimizeImage(file, {
-    maxSizeMB: 1.5, // 1.5MB for banner images
-    maxWidthOrHeight: 1920, // 1920px width for banners
-    initialQuality: 0.85,
-  })
-}
-
-/**
  * Validate file size (15MB limit like pump.fun)
  */
 export function validateFileSize(file: File, maxSizeMB: number = 15): {

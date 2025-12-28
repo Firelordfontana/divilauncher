@@ -5,9 +5,10 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { useRouter } from 'next/navigation'
 import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import Navigation from '@/components/Navigation'
-import { optimizeProfileImage, optimizeBannerImage, validateFileSize, validateImageType } from '@/utils/imageOptimizer'
+import { optimizeProfileImage, validateFileSize, validateImageType } from '@/utils/imageOptimizer'
 import { getIPFSUrl } from '@/utils/ipfsGateways'
 import { useDatabaseStorage } from '@/utils/storageConfig'
+import { fetchBalanceWithFallback } from '@/utils/solscanBalance'
 
 interface TokenInfo {
   tokenAddress: string
@@ -52,7 +53,6 @@ interface CreatorProfile {
   username: string
   bio: string
   profileImageUrl: string
-  bannerImageUrl: string
   socialLinks: {
     twitter?: string
     telegram?: string
@@ -79,13 +79,10 @@ export default function AccountPage() {
   } | null>(null)
   const [profileFormData, setProfileFormData] = useState<CreatorProfile | null>(null)
   const profileImageRef = useRef<HTMLInputElement>(null)
-  const bannerImageRef = useRef<HTMLInputElement>(null)
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null)
-  const [bannerImagePreview, setBannerImagePreview] = useState<string | null>(null)
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
-  const [bannerImageFile, setBannerImageFile] = useState<File | null>(null)
   const [uploadingImages, setUploadingImages] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<{ profile: number; banner: number }>({ profile: 0, banner: 0 })
+  const [uploadProgress, setUploadProgress] = useState<{ profile: number }>({ profile: 0 })
   const [optimizingImages, setOptimizingImages] = useState(false)
   const [copied, setCopied] = useState(false)
   const [hasCheckedWallet, setHasCheckedWallet] = useState(false)
@@ -111,47 +108,40 @@ export default function AccountPage() {
     if (wallet.connected && wallet.publicKey) {
       loadProfileAndTokens()
       
-      // Fetch SOL balance (matching Navigation component pattern)
+      // Fetch SOL balance using Solscan API (free, no rate limits)
       const fetchBalance = async () => {
-        if (!wallet.publicKey || !connection) return
+        if (!wallet.publicKey) return
         try {
           setBalanceLoading(true)
-          // Add timeout to prevent hanging
-          const balance = await Promise.race([
-            connection.getBalance(wallet.publicKey),
-            new Promise<number>((_, reject) => 
-              setTimeout(() => reject(new Error('Balance fetch timeout')), 10000)
-            )
-          ])
-          setSolBalance(balance / LAMPORTS_PER_SOL)
-        } catch (err: any) {
-          // Silently handle rate limit errors - don't spam console
-          const isRateLimit = err?.message?.includes('403') || 
-                             err?.message?.includes('rate limit') ||
-                             err?.message?.includes('Forbidden') ||
-                             err?.code === 403
+          const walletAddress = wallet.publicKey.toBase58()
           
-          if (!isRateLimit) {
-            // Only log non-rate-limit errors
-            console.error('Failed to fetch balance:', err)
+          // Use Solscan API with RPC fallback
+          const balance = await fetchBalanceWithFallback(
+            walletAddress,
+            connection,
+            wallet.publicKey
+          )
+          
+          if (balance !== null) {
+            setSolBalance(balance)
           }
-          // Don't set balance to null on rate limit - keep previous value if available
-          if (!isRateLimit) {
-            setSolBalance(null)
-          }
+          // If balance is null, keep previous value (don't clear it)
+        } catch (err: any) {
+          // Silently handle errors - don't spam console
+          console.warn('Failed to fetch balance:', err.message)
+          // Don't set balance to null - keep previous value if available
         } finally {
           setBalanceLoading(false)
         }
       }
       
-      // Fetch balance with a delay to ensure connection is ready
+      // Fetch balance with a delay to ensure wallet is ready
       const balanceTimer = setTimeout(() => {
         fetchBalance()
       }, 1000)
       
-      // Refresh balance periodically (longer interval to avoid rate limits)
-      // Increased to 60 seconds to reduce rate limit issues
-      const interval = setInterval(fetchBalance, 60000) // Every 60 seconds to avoid rate limits
+      // Refresh balance every 10 seconds using Solscan (free, no rate limits)
+      const interval = setInterval(fetchBalance, 10000) // Every 10 seconds
       return () => {
         clearTimeout(balanceTimer)
         clearInterval(interval)
@@ -180,16 +170,14 @@ export default function AccountPage() {
           const dbProfile = data.profile
           
           // Convert database profile to CreatorProfile format
-          // Use avatarData/bannerData if available (database storage), otherwise use URL
+          // Use avatarData if available (database storage), otherwise use URL
           const avatarUrl = dbProfile.avatarData || dbProfile.avatarUrl || ''
-          const bannerUrl = dbProfile.bannerData || dbProfile.bannerUrl || ''
           
           const myProfile: CreatorProfile = {
             walletAddress: dbProfile.walletAddress,
             username: dbProfile.username || '',
             bio: dbProfile.bio || '',
             profileImageUrl: avatarUrl,
-            bannerImageUrl: bannerUrl,
             socialLinks: {
               website: dbProfile.website || undefined,
               twitter: dbProfile.twitter || undefined,
@@ -208,7 +196,6 @@ export default function AccountPage() {
             username: '',
             bio: '',
             profileImageUrl: '',
-            bannerImageUrl: '',
             socialLinks: {},
             createdAt: new Date().toISOString(),
           }
@@ -230,7 +217,6 @@ export default function AccountPage() {
             username: '',
             bio: '',
             profileImageUrl: '',
-            bannerImageUrl: '',
             socialLinks: {},
             createdAt: new Date().toISOString(),
           }
@@ -314,42 +300,6 @@ export default function AccountPage() {
     }
   }
 
-  const handleBannerImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // Validate file type
-      const typeValidation = validateImageType(file)
-      if (!typeValidation.valid) {
-        alert(typeValidation.error)
-        e.target.value = ''
-        return
-      }
-
-      // Validate file size (15MB limit like pump.fun)
-      const sizeValidation = validateFileSize(file, 15)
-      if (!sizeValidation.valid) {
-        alert(sizeValidation.error)
-        e.target.value = ''
-        return
-      }
-
-      // Show preview immediately (base64 for display)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setBannerImagePreview(reader.result as string)
-      }
-      reader.onerror = () => {
-        alert('Failed to read banner image file. Please try again.')
-        e.target.value = ''
-      }
-      reader.readAsDataURL(file)
-      
-      // Optimize image before storing (this will happen in background)
-      // Store original for now, optimization happens on save
-      setBannerImageFile(file)
-    }
-  }
-
   const handleSaveProfile = async () => {
     if (!profileFormData || !wallet.publicKey) return
 
@@ -372,20 +322,6 @@ export default function AccountPage() {
           avatarUrl = existingUrl
         } else {
           avatarUrl = null // No existing valid URL
-        }
-      }
-      
-      let bannerUrl: string | null = null
-      if (bannerImageFile) {
-        // New file selected - will upload to IPFS
-        bannerUrl = null // Will be set after upload
-      } else {
-        // No new file - use existing URL (but not if it's base64 or empty)
-        const existingUrl = profileFormData.bannerImageUrl
-        if (existingUrl && existingUrl.trim() !== '' && !existingUrl.startsWith('data:')) {
-          bannerUrl = existingUrl
-        } else {
-          bannerUrl = null // No existing valid URL
         }
       }
       
@@ -453,86 +389,6 @@ export default function AccountPage() {
         }
       }
       
-      if (bannerImageFile) {
-        try {
-          setUploadProgress(prev => ({ ...prev, banner: 10 }))
-          
-          // Optimize image before upload
-          setOptimizingImages(true)
-          const optimizedFile = await optimizeBannerImage(bannerImageFile)
-          setOptimizingImages(false)
-          setUploadProgress(prev => ({ ...prev, banner: 50 }))
-          
-          if (useDatabaseStorage()) {
-            // Database storage: convert to base64
-            const base64 = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader()
-              reader.onloadend = () => resolve(reader.result as string)
-              reader.onerror = reject
-              reader.readAsDataURL(optimizedFile)
-            })
-            bannerUrl = base64 // Store as data URI
-            setUploadProgress(prev => ({ ...prev, banner: 100 }))
-          } else {
-            // IPFS storage: upload to IPFS
-            setUploadProgress(prev => ({ ...prev, banner: 30 }))
-            
-            const formData = new FormData()
-            formData.append('file', optimizedFile)
-            
-            // Use AbortController for timeout handling
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minute timeout
-            
-            // Simulate upload progress (since we can't track actual progress with fetch)
-            const progressInterval = setInterval(() => {
-              setUploadProgress(prev => ({
-                ...prev,
-                banner: Math.min(prev.banner + 10, 90),
-              }))
-            }, 500)
-            
-            const uploadResponse = await fetch('/api/upload-image', {
-              method: 'POST',
-              body: formData,
-              signal: controller.signal,
-            })
-            
-            clearInterval(progressInterval)
-            clearTimeout(timeoutId)
-            setUploadProgress(prev => ({ ...prev, banner: 100 }))
-            
-            if (!uploadResponse.ok) {
-              const errorData = await uploadResponse.json().catch(() => ({}))
-              throw new Error(errorData.error || `Upload failed: ${uploadResponse.statusText}`)
-            }
-            
-            const uploadData = await uploadResponse.json()
-            bannerUrl = uploadData.ipfsUrl
-          }
-          
-          setUploadProgress(prev => ({ ...prev, banner: 0 }))
-        } catch (error: any) {
-          console.error('Failed to process banner image:', error)
-          setUploadProgress(prev => ({ ...prev, banner: 0 }))
-          let errorMessage = 'Failed to process banner image'
-          
-          if (error.name === 'AbortError') {
-            errorMessage = 'Upload timed out. The image may be too large or your connection is slow. Please try a smaller image or check your connection.'
-          } else if (error.message?.includes('network') || error.message?.includes('fetch') || error.message?.includes('Network')) {
-            errorMessage = 'Network error. Please check your connection and try again.'
-          } else if (error.message) {
-            errorMessage = error.message
-          }
-          
-          alert(errorMessage)
-          setSavingProfile(false)
-          setUploadingImages(false)
-          setOptimizingImages(false)
-          return
-        }
-      }
-      
       // Prepare profile data for API
       const profileData: any = {
         username: profileFormData.username || null,
@@ -551,15 +407,9 @@ export default function AccountPage() {
         } else {
           profileData.avatarUrl = avatarUrl
         }
-        if (bannerUrl && bannerUrl.startsWith('data:')) {
-          profileData.bannerData = bannerUrl
-        } else {
-          profileData.bannerUrl = bannerUrl
-        }
       } else {
         // IPFS storage: send URLs only
         profileData.avatarUrl = avatarUrl
-        profileData.bannerUrl = bannerUrl
       }
 
       // Save to database via API
@@ -580,16 +430,14 @@ export default function AccountPage() {
       const savedProfile = result.profile
 
       // Update local state immediately with saved data (faster UI update)
-      // Use avatarData/bannerData if available (database storage), otherwise use URL
+      // Use avatarData if available (database storage), otherwise use URL
       const savedAvatarUrl = savedProfile.avatarData || savedProfile.avatarUrl || ''
-      const savedBannerUrl = savedProfile.bannerData || savedProfile.bannerUrl || ''
       
       const updatedProfile: CreatorProfile = {
         walletAddress: savedProfile.walletAddress,
         username: savedProfile.username || '',
         bio: savedProfile.bio || '',
         profileImageUrl: savedAvatarUrl,
-        bannerImageUrl: savedBannerUrl,
         socialLinks: {
           website: savedProfile.website,
           twitter: savedProfile.twitter,
@@ -604,9 +452,7 @@ export default function AccountPage() {
       setProfileFormData(updatedProfile)
       setEditingProfile(false)
       setProfileImagePreview(null)
-      setBannerImagePreview(null)
       setProfileImageFile(null)
-      setBannerImageFile(null)
       
       // Notify Navigation component of profile update
       window.dispatchEvent(new CustomEvent('profileUpdated', { detail: updatedProfile }))
@@ -623,10 +469,10 @@ export default function AccountPage() {
     } catch (err: any) {
       console.error('Failed to save profile:', err)
       alert(`Failed to save profile: ${err.message}`)
-           } finally {
-             setSavingProfile(false)
-             setUploadingImages(false)
-           }
+    } finally {
+      setSavingProfile(false)
+      setUploadingImages(false)
+    }
   }
 
   const handleEditAllocations = (token: TokenInfo) => {
@@ -854,8 +700,14 @@ export default function AccountPage() {
 
   // Calculate stats
   const totalTokens = myTokens.length
-  const totalMarketCap = myTokens.reduce((sum, token) => sum + (token.marketCap || 0), 0)
-  const totalVolume = myTokens.reduce((sum, token) => sum + (token.initialBuyAmount || 0), 0)
+  const totalBurned = myTokens.reduce((sum, token) => {
+    const burnedAmount = (token.initialBuyAmount || 0) * ((token.burnPercent || 0) / 100)
+    return sum + burnedAmount
+  }, 0)
+  const totalRewards = myTokens.reduce((sum, token) => {
+    const rewardAmount = (token.initialBuyAmount || 0) * ((token.rewardDistributionPercent || 0) / 100)
+    return sum + rewardAmount
+  }, 0)
 
   // Show loading state while checking wallet connection
   if (!hasCheckedWallet || loading || wallet.connecting) {
@@ -949,52 +801,11 @@ export default function AccountPage() {
           </div>
         </header>
 
-        {/* Profile Banner */}
-        <div className="relative mb-20 mt-16">
-          <div className="h-48 bg-gradient-to-r from-primary-600/30 to-primary-500/30 relative">
-            {displayProfile?.bannerImageUrl || bannerImagePreview ? (
-              <img
-                src={bannerImagePreview || (displayProfile?.bannerImageUrl 
-                  ? (displayProfile.bannerImageUrl.startsWith('data:') 
-                      ? displayProfile.bannerImageUrl 
-                      : getIPFSUrl(displayProfile.bannerImageUrl))
-                  : '')}
-                alt="Banner"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  // Fallback to next gateway if image fails to load (only for IPFS URLs)
-                  const img = e.currentTarget
-                  const src = img.src
-                  if (!src.startsWith('data:') && src.includes('gateway.pinata.cloud')) {
-                    img.src = src.replace('gateway.pinata.cloud', 'ipfs.io')
-                  } else if (!src.startsWith('data:') && src.includes('ipfs.io')) {
-                    img.src = src.replace('ipfs.io', 'cloudflare-ipfs.com')
-                  }
-                }}
-              />
-            ) : null}
-            {editingProfile && (
-              <div className="absolute top-4 right-4">
-                <input
-                  ref={bannerImageRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleBannerImageChange}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => bannerImageRef.current?.click()}
-                  className="bg-black/70 hover:bg-black/90 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  Change Banner
-                </button>
-              </div>
-            )}
-          </div>
-          
-          {/* Profile Picture */}
-          <div className="absolute bottom-0 left-6 transform translate-y-1/2">
-            <div className="relative">
+        {/* Profile Section */}
+        <div className="relative mb-8 mt-16 px-6">
+          <div className="flex items-start gap-6">
+            {/* Profile Picture */}
+            <div className="relative flex-shrink-0">
               {displayProfile?.profileImageUrl || profileImagePreview ? (
                 <img
                   src={profileImagePreview || (displayProfile?.profileImageUrl 
@@ -1003,7 +814,7 @@ export default function AccountPage() {
                         : getIPFSUrl(displayProfile.profileImageUrl))
                     : '')}
                   alt="Profile"
-                  className="w-32 h-32 rounded-full object-cover border-4 border-black"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-primary-600/30"
                   onError={(e) => {
                     // Fallback to next gateway if image fails to load (only for IPFS URLs)
                     const img = e.currentTarget
@@ -1016,7 +827,7 @@ export default function AccountPage() {
                   }}
                 />
               ) : (
-                <div className="w-32 h-32 rounded-full bg-primary-600/30 border-4 border-black flex items-center justify-center">
+                <div className="w-32 h-32 rounded-full bg-primary-600/30 border-4 border-primary-600/30 flex items-center justify-center">
                   <span className="text-4xl text-primary-400 font-bold">
                     {wallet.publicKey?.toBase58().charAt(0).toUpperCase()}
                   </span>
@@ -1042,81 +853,11 @@ export default function AccountPage() {
               />
             </div>
           </div>
-
-          {/* Edit Profile Button */}
-          <div className="absolute bottom-4 right-6">
-            {!editingProfile ? (
-              <button
-                onClick={() => setEditingProfile(true)}
-                className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-              >
-                Edit Profile
-              </button>
-            ) : (
-              <div className="flex gap-3">
-                <div className="space-y-2">
-                  <button
-                    onClick={handleSaveProfile}
-                    disabled={savingProfile || uploadingImages || optimizingImages}
-                    className="bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-6 rounded-lg transition-colors w-full"
-                  >
-                    {optimizingImages ? 'Optimizing images...' : uploadingImages ? 'Uploading images...' : savingProfile ? 'Saving...' : 'Save Profile'}
-                  </button>
-                  
-                  {/* Progress Indicators */}
-                  {(uploadProgress.profile > 0 || uploadProgress.banner > 0) && (
-                    <div className="space-y-1">
-                      {uploadProgress.profile > 0 && (
-                        <div>
-                          <div className="flex justify-between text-xs text-gray-400 mb-1">
-                            <span>Profile Image</span>
-                            <span>{uploadProgress.profile}%</span>
-                          </div>
-                          <div className="w-full bg-gray-800 rounded-full h-1.5">
-                            <div
-                              className="bg-primary-600 h-1.5 rounded-full transition-all duration-300"
-                              style={{ width: `${uploadProgress.profile}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {uploadProgress.banner > 0 && (
-                        <div>
-                          <div className="flex justify-between text-xs text-gray-400 mb-1">
-                            <span>Banner Image</span>
-                            <span>{uploadProgress.banner}%</span>
-                          </div>
-                          <div className="w-full bg-gray-800 rounded-full h-1.5">
-                            <div
-                              className="bg-primary-600 h-1.5 rounded-full transition-all duration-300"
-                              style={{ width: `${uploadProgress.banner}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => {
-                    setEditingProfile(false)
-                    setProfileFormData(profile)
-                    setProfileImagePreview(null)
-                    setBannerImagePreview(null)
-                  }}
-                  className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Profile Info */}
         <div className="px-6 mb-8">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
+          <div className="flex-1">
               {editingProfile ? (
                 <div className="mb-4">
                   <label className="block text-sm font-medium mb-2 text-gray-300">Username</label>
@@ -1182,9 +923,59 @@ export default function AccountPage() {
                   View on Solscan →
                 </a>
               </div>
-            </div>
-          </div>
 
+              {/* Edit Profile Buttons */}
+              <div className="mt-4">
+                {!editingProfile ? (
+                  <button
+                    onClick={() => setEditingProfile(true)}
+                    className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                  >
+                    Edit Profile
+                  </button>
+                ) : (
+                  <div className="flex gap-3 items-start">
+                    <div className="space-y-2">
+                      <button
+                        onClick={handleSaveProfile}
+                        disabled={savingProfile || uploadingImages || optimizingImages}
+                        className="bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-6 rounded-lg transition-colors w-full"
+                      >
+                        {optimizingImages ? 'Optimizing images...' : uploadingImages ? 'Uploading images...' : savingProfile ? 'Saving...' : 'Save Profile'}
+                      </button>
+                      
+                      {/* Progress Indicators */}
+                      {uploadProgress.profile > 0 && (
+                        <div className="space-y-1">
+                          <div>
+                            <div className="flex justify-between text-xs text-gray-400 mb-1">
+                              <span>Profile Image</span>
+                              <span>{uploadProgress.profile}%</span>
+                            </div>
+                            <div className="w-full bg-gray-800 rounded-full h-1.5">
+                              <div
+                                className="bg-primary-600 h-1.5 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadProgress.profile}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingProfile(false)
+                        setProfileFormData(profile)
+                        setProfileImagePreview(null)
+                      }}
+                      className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -1194,12 +985,12 @@ export default function AccountPage() {
             <p className="text-2xl font-bold text-primary-400">{totalTokens}</p>
           </div>
           <div className="bg-black border border-primary-600/30 rounded-lg p-4">
-            <p className="text-xs text-gray-400 mb-1">Total Market Cap</p>
-            <p className="text-2xl font-bold text-primary-400">{formatMarketCap(totalMarketCap)}</p>
+            <p className="text-xs text-gray-400 mb-1">Total Burned</p>
+            <p className="text-2xl font-bold text-primary-400">{totalBurned.toFixed(2)} SOL</p>
           </div>
           <div className="bg-black border border-primary-600/30 rounded-lg p-4">
-            <p className="text-xs text-gray-400 mb-1">Total Volume</p>
-            <p className="text-2xl font-bold text-primary-400">{totalVolume.toFixed(2)} SOL</p>
+            <p className="text-xs text-gray-400 mb-1">Total Rewards</p>
+            <p className="text-2xl font-bold text-primary-400">{totalRewards.toFixed(2)} SOL</p>
           </div>
         </div>
 

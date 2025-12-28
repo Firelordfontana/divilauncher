@@ -113,3 +113,4 @@ NEXT_PUBLIC_LAUNCH_WALLET_ADDRESS=YourLaunchWalletAddressHere
 3. Add `NEXT_PUBLIC_LAUNCH_WALLET_ADDRESS` to `.env.local`
 4. Update your backend/program to use this wallet for launches
 
+

@@ -42,8 +42,6 @@ export interface CreatorProfile {
   bio: string | null
   avatarUrl: string | null
   avatarData?: string | null // Base64 data (for database storage)
-  bannerUrl: string | null
-  bannerData?: string | null // Base64 data (for database storage)
   website: string | null
   twitter: string | null
   telegram: string | null
@@ -104,9 +102,8 @@ export function prismaTokenToTokenInfo(token: Token & {
  * Convert Prisma Profile model to API CreatorProfile
  */
 export function prismaProfileToCreatorProfile(profile: Profile): CreatorProfile {
-  // Use avatarData/bannerData if available (database storage), otherwise use URL
+  // Use avatarData if available (database storage), otherwise use URL
   const avatarUrl = (profile as any).avatarData || profile.avatarUrl
-  const bannerUrl = (profile as any).bannerData || profile.bannerUrl
   
   return {
     walletAddress: profile.walletAddress,
@@ -114,8 +111,6 @@ export function prismaProfileToCreatorProfile(profile: Profile): CreatorProfile 
     bio: profile.bio,
     avatarUrl: avatarUrl || null,
     avatarData: (profile as any).avatarData || null,
-    bannerUrl: bannerUrl || null,
-    bannerData: (profile as any).bannerData || null,
     website: profile.website,
     twitter: profile.twitter,
     telegram: profile.telegram,

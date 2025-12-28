@@ -89,3 +89,4 @@ export function createIPFSImage(ipfsHash: string, alt: string = ''): HTMLImageEl
   return img
 }
 
+

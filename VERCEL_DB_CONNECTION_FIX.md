@@ -93,3 +93,4 @@ If pooler doesn't work:
 4. ✅ Check Vercel deployment logs for more details
 5. ✅ Verify password is correct in connection string
 
+

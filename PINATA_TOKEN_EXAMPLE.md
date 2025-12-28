@@ -53,3 +53,4 @@ When you create a new API key, Pinata will show you something like:
 
 Click the **"Copy"** button to copy the entire token, then paste it into your `.env.local` file.
 
+

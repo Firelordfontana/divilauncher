@@ -55,8 +55,6 @@ export async function PUT(
       bio,
       avatarUrl,
       avatarData, // Base64 data for database storage
-      bannerUrl,
-      bannerData, // Base64 data for database storage
       website,
       twitter,
       telegram,
@@ -75,8 +73,6 @@ export async function PUT(
     
     let finalAvatarUrl: string | null = null
     let finalAvatarData: string | null = null
-    let finalBannerUrl: string | null = null
-    let finalBannerData: string | null = null
     
     if (useDB) {
       // Database storage mode: use base64 data
@@ -95,26 +91,9 @@ export async function PUT(
         // Keep existing IPFS URL if switching from IPFS to DB
         finalAvatarUrl = avatarUrl
       }
-      
-      if (bannerData && bannerData.trim() !== '') {
-        // Validate size (2MB limit for base64)
-        if (bannerData.length > MAX_DB_IMAGE_SIZE) {
-          return NextResponse.json(
-            { error: `Banner image is too large. Maximum size is ${MAX_DB_IMAGE_SIZE / 1024 / 1024}MB base64.` },
-            { status: 400 }
-          )
-        }
-        finalBannerData = bannerData
-        // Also store as data URI for easy retrieval
-        finalBannerUrl = bannerData.startsWith('data:') ? bannerData : `data:image/jpeg;base64,${bannerData}`
-      } else if (bannerUrl && bannerUrl.trim() !== '' && !bannerUrl.startsWith('data:')) {
-        // Keep existing IPFS URL if switching from IPFS to DB
-        finalBannerUrl = bannerUrl
-      }
     } else {
       // IPFS storage mode: use URLs only
       const normalizedAvatarUrl = avatarUrl && avatarUrl.trim() !== '' ? avatarUrl : null
-      const normalizedBannerUrl = bannerUrl && bannerUrl.trim() !== '' ? bannerUrl : null
       
       // Validate that URLs are valid (should be IPFS URLs, not base64)
       if (normalizedAvatarUrl && normalizedAvatarUrl.startsWith('data:')) {
@@ -123,46 +102,41 @@ export async function PUT(
           { status: 400 }
         )
       }
-      if (normalizedBannerUrl && normalizedBannerUrl.startsWith('data:')) {
-        return NextResponse.json(
-          { error: 'Banner image must be uploaded to IPFS first. Please select an image file to upload.' },
-          { status: 400 }
-        )
-      }
       
       finalAvatarUrl = normalizedAvatarUrl
-      finalBannerUrl = normalizedBannerUrl
     }
 
     // Upsert profile (create or update)
+    // Build update object with only defined fields
+    const updateData: any = {
+      updatedAt: new Date(),
+    }
+    if (username !== undefined) updateData.username = username
+    if (bio !== undefined) updateData.bio = bio
+    if (finalAvatarUrl !== undefined) updateData.avatarUrl = finalAvatarUrl
+    if (finalAvatarData !== undefined) updateData.avatarData = finalAvatarData
+    if (website !== undefined) updateData.website = website
+    if (twitter !== undefined) updateData.twitter = twitter
+    if (telegram !== undefined) updateData.telegram = telegram
+    if (discord !== undefined) updateData.discord = discord
+
+    // Build create object
+    const createData: any = {
+      walletAddress,
+      username: username || null,
+      bio: bio || null,
+      website: website || null,
+      twitter: twitter || null,
+      telegram: telegram || null,
+      discord: discord || null,
+    }
+    if (finalAvatarUrl !== undefined) createData.avatarUrl = finalAvatarUrl
+    if (finalAvatarData !== undefined) createData.avatarData = finalAvatarData
+
     const profile = await prisma.profile.upsert({
       where: { walletAddress },
-      update: {
-        username: username !== undefined ? username : undefined,
-        bio: bio !== undefined ? bio : undefined,
-        avatarUrl: finalAvatarUrl !== undefined ? finalAvatarUrl : undefined,
-        avatarData: finalAvatarData !== undefined ? finalAvatarData : undefined,
-        bannerUrl: finalBannerUrl !== undefined ? finalBannerUrl : undefined,
-        bannerData: finalBannerData !== undefined ? finalBannerData : undefined,
-        website: website !== undefined ? website : undefined,
-        twitter: twitter !== undefined ? twitter : undefined,
-        telegram: telegram !== undefined ? telegram : undefined,
-        discord: discord !== undefined ? discord : undefined,
-        updatedAt: new Date(),
-      },
-      create: {
-        walletAddress,
-        username: username || null,
-        bio: bio || null,
-        avatarUrl: finalAvatarUrl,
-        avatarData: finalAvatarData,
-        bannerUrl: finalBannerUrl,
-        bannerData: finalBannerData,
-        website: website || null,
-        twitter: twitter || null,
-        telegram: telegram || null,
-        discord: discord || null,
-      },
+      update: updateData,
+      create: createData,
     })
 
     return NextResponse.json({
