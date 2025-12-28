@@ -30,26 +30,50 @@ try {
       : `${connectionString}?sslmode=require`
   }
   
+  // Add connection timeout if not present
+  if (!connectionStringWithSSL.includes('connect_timeout=')) {
+    connectionStringWithSSL = connectionStringWithSSL.includes('?') 
+      ? `${connectionStringWithSSL}&connect_timeout=30`
+      : `${connectionStringWithSSL}?connect_timeout=30`
+  }
+  
   // For Supabase with forced SSL:
   // - If you have the certificate file, use verify-full and provide ca/cert/key
   // - For serverless (Vercel), use require with rejectUnauthorized: false
   // This allows connection without storing certificate files
+  const sslConfig = process.env.SUPABASE_SSL_CERT 
+    ? (() => {
+        try {
+          // If certificate is provided via environment variable (base64 encoded)
+          const certContent = Buffer.from(process.env.SUPABASE_SSL_CERT, 'base64').toString()
+          return {
+            ca: certContent,
+            rejectUnauthorized: true
+          }
+        } catch (certError) {
+          console.warn('Failed to parse SUPABASE_SSL_CERT, falling back to default SSL config:', certError)
+          return {
+            rejectUnauthorized: false
+          }
+        }
+      })()
+    : {
+        // Default: require SSL but don't verify certificate (works for serverless)
+        rejectUnauthorized: false
+      }
+  
   pool = new Pool({ 
     connectionString: connectionStringWithSSL,
-    ssl: process.env.SUPABASE_SSL_CERT 
-      ? {
-          // If certificate is provided via environment variable (base64 encoded)
-          ca: Buffer.from(process.env.SUPABASE_SSL_CERT, 'base64').toString(),
-          rejectUnauthorized: true
-        }
-      : {
-          // Default: require SSL but don't verify certificate (works for serverless)
-          rejectUnauthorized: false
-        }
+    ssl: sslConfig,
+    // Connection pool settings for serverless
+    max: 1, // Limit connections for serverless
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 30000,
   })
   adapter = new PrismaPg(pool)
 } catch (error) {
   console.error('Failed to create database pool:', error)
+  console.error('Connection string (masked):', connectionString?.replace(/:[^:@]+@/, ':****@'))
   throw error
 }
 
