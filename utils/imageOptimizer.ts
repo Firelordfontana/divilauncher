@@ -9,14 +9,14 @@ export interface ImageOptimizationOptions {
   maxSizeMB?: number // Maximum file size in MB (default: 1MB)
   maxWidthOrHeight?: number // Maximum width or height in pixels (default: 1920)
   useWebWorker?: boolean // Use web worker for compression (default: true)
-  quality?: number // Image quality 0-1 (default: 0.8)
+  initialQuality?: number // Initial image quality 0-1 (default: 0.8)
 }
 
-const DEFAULT_OPTIONS: Required<ImageOptimizationOptions> = {
+const DEFAULT_OPTIONS: Required<Omit<ImageOptimizationOptions, 'initialQuality'>> & { initialQuality: number } = {
   maxSizeMB: 1, // Target 1MB for profile images
   maxWidthOrHeight: 1920, // Max 1920px for profile images
   useWebWorker: true,
-  quality: 0.8, // 80% quality (good balance)
+  initialQuality: 0.8, // 80% quality (good balance)
 }
 
 /**
@@ -34,26 +34,26 @@ export async function optimizeImage(
   const opts = { ...DEFAULT_OPTIONS, ...options }
 
   try {
-    // Check if file is already small enough
-    const fileSizeMB = file.size / (1024 * 1024)
-    if (fileSizeMB <= opts.maxSizeMB) {
-      // File is already small, but still resize if needed
+      // Check if file is already small enough
+      const fileSizeMB = file.size / (1024 * 1024)
+      if (fileSizeMB <= opts.maxSizeMB) {
+        // File is already small, but still resize if needed
+        const compressed = await imageCompression(file, {
+          maxSizeMB: opts.maxSizeMB * 1.5, // Allow slightly larger to avoid over-compression
+          maxWidthOrHeight: opts.maxWidthOrHeight,
+          useWebWorker: opts.useWebWorker,
+          initialQuality: opts.initialQuality,
+        })
+        return compressed
+      }
+
+      // Compress the image
       const compressed = await imageCompression(file, {
-        maxSizeMB: opts.maxSizeMB * 1.5, // Allow slightly larger to avoid over-compression
+        maxSizeMB: opts.maxSizeMB,
         maxWidthOrHeight: opts.maxWidthOrHeight,
         useWebWorker: opts.useWebWorker,
-        quality: opts.quality,
+        initialQuality: opts.initialQuality,
       })
-      return compressed
-    }
-
-    // Compress the image
-    const compressed = await imageCompression(file, {
-      maxSizeMB: opts.maxSizeMB,
-      maxWidthOrHeight: opts.maxWidthOrHeight,
-      useWebWorker: opts.useWebWorker,
-      quality: opts.quality,
-    })
 
     return compressed
   } catch (error: any) {
@@ -70,7 +70,7 @@ export async function optimizeProfileImage(file: File): Promise<File> {
   return optimizeImage(file, {
     maxSizeMB: 0.5, // 500KB for profile images
     maxWidthOrHeight: 512, // 512x512 for profile images
-    quality: 0.85,
+    initialQuality: 0.85,
   })
 }
 
@@ -81,7 +81,7 @@ export async function optimizeBannerImage(file: File): Promise<File> {
   return optimizeImage(file, {
     maxSizeMB: 1.5, // 1.5MB for banner images
     maxWidthOrHeight: 1920, // 1920px width for banners
-    quality: 0.85,
+    initialQuality: 0.85,
   })
 }
 
