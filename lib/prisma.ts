@@ -16,13 +16,21 @@ if (!connectionString) {
   throw new Error('DATABASE_URL environment variable is not set')
 }
 
-// Supabase requires SSL connections
+// Supabase requires SSL connections (especially with forced SSL enabled)
 let pool: Pool
 let adapter: PrismaPg
 
 try {
+  // Ensure connection string has sslmode=require if not already present
+  let connectionStringWithSSL = connectionString
+  if (!connectionString.includes('sslmode=')) {
+    connectionStringWithSSL = connectionString.includes('?') 
+      ? `${connectionString}&sslmode=require`
+      : `${connectionString}?sslmode=require`
+  }
+  
   pool = new Pool({ 
-    connectionString,
+    connectionString: connectionStringWithSSL,
     ssl: {
       rejectUnauthorized: false // Supabase uses self-signed certificates
     }
