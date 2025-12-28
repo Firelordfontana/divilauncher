@@ -579,13 +579,17 @@ export default function AccountPage() {
       const result = await response.json()
       const savedProfile = result.profile
 
-      // Update local state
+      // Update local state immediately with saved data (faster UI update)
+      // Use avatarData/bannerData if available (database storage), otherwise use URL
+      const avatarUrl = savedProfile.avatarData || savedProfile.avatarUrl || ''
+      const bannerUrl = savedProfile.bannerData || savedProfile.bannerUrl || ''
+      
       const updatedProfile: CreatorProfile = {
         walletAddress: savedProfile.walletAddress,
         username: savedProfile.username || '',
         bio: savedProfile.bio || '',
-        profileImageUrl: savedProfile.avatarUrl || '',
-        bannerImageUrl: savedProfile.bannerUrl || '',
+        profileImageUrl: avatarUrl,
+        bannerImageUrl: bannerUrl,
         socialLinks: {
           website: savedProfile.website,
           twitter: savedProfile.twitter,
@@ -595,13 +599,20 @@ export default function AccountPage() {
         createdAt: savedProfile.createdAt || new Date().toISOString(),
       }
 
+      // Update state immediately (no need to wait for reload)
       setProfile(updatedProfile)
+      setProfileFormData(updatedProfile)
       setEditingProfile(false)
       setProfileImagePreview(null)
       setBannerImagePreview(null)
+      setProfileImageFile(null)
+      setBannerImageFile(null)
       
-      // Reload profile from database to ensure we have latest data
-      await loadProfileAndTokens()
+      // Reload profile from database in background (for consistency, but don't wait)
+      loadProfileAndTokens().catch(err => {
+        console.error('Background profile reload failed:', err)
+        // Don't show error to user since we already updated the UI
+      })
       
       // Show success toast
       setShowSuccessToast(true)
