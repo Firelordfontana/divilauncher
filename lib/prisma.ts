@@ -16,6 +16,8 @@ if (!connectionString) {
 }
 
 // Remove any sslmode from connection string - we'll handle SSL via Pool config
+// For connection pooler (pgbouncer), we don't need to modify the connection string
+// The pooler handles SSL automatically
 let connectionStringWithSSL = connectionString.replace(/[?&]sslmode=[^&]*/g, '')
 
 // Create pool with SSL config that accepts self-signed certificates
