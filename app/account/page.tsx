@@ -7,6 +7,7 @@ import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import Navigation from '@/components/Navigation'
 import { optimizeProfileImage, optimizeBannerImage, validateFileSize, validateImageType } from '@/utils/imageOptimizer'
 import { getIPFSUrl } from '@/utils/ipfsGateways'
+import { useDatabaseStorage } from '@/utils/storageConfig'
 
 interface TokenInfo {
   tokenAddress: string
@@ -456,45 +457,61 @@ export default function AccountPage() {
           setOptimizingImages(true)
           const optimizedFile = await optimizeBannerImage(bannerImageFile)
           setOptimizingImages(false)
-          setUploadProgress(prev => ({ ...prev, banner: 30 }))
+          setUploadProgress(prev => ({ ...prev, banner: 50 }))
           
-          const formData = new FormData()
-          formData.append('file', optimizedFile)
-          
-          // Use AbortController for timeout handling
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minute timeout
-          
-          // Simulate upload progress (since we can't track actual progress with fetch)
-          const progressInterval = setInterval(() => {
-            setUploadProgress(prev => ({
-              ...prev,
-              banner: Math.min(prev.banner + 10, 90),
-            }))
-          }, 500)
-          
-          const uploadResponse = await fetch('/api/upload-image', {
-            method: 'POST',
-            body: formData,
-            signal: controller.signal,
-          })
-          
-          clearInterval(progressInterval)
-          clearTimeout(timeoutId)
-          setUploadProgress(prev => ({ ...prev, banner: 100 }))
-          
-          if (!uploadResponse.ok) {
-            const errorData = await uploadResponse.json().catch(() => ({}))
-            throw new Error(errorData.error || `Upload failed: ${uploadResponse.statusText}`)
+          if (useDatabaseStorage()) {
+            // Database storage: convert to base64
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader()
+              reader.onloadend = () => resolve(reader.result as string)
+              reader.onerror = reject
+              reader.readAsDataURL(optimizedFile)
+            })
+            bannerUrl = base64 // Store as data URI
+            setUploadProgress(prev => ({ ...prev, banner: 100 }))
+          } else {
+            // IPFS storage: upload to IPFS
+            setUploadProgress(prev => ({ ...prev, banner: 30 }))
+            
+            const formData = new FormData()
+            formData.append('file', optimizedFile)
+            
+            // Use AbortController for timeout handling
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minute timeout
+            
+            // Simulate upload progress (since we can't track actual progress with fetch)
+            const progressInterval = setInterval(() => {
+              setUploadProgress(prev => ({
+                ...prev,
+                banner: Math.min(prev.banner + 10, 90),
+              }))
+            }, 500)
+            
+            const uploadResponse = await fetch('/api/upload-image', {
+              method: 'POST',
+              body: formData,
+              signal: controller.signal,
+            })
+            
+            clearInterval(progressInterval)
+            clearTimeout(timeoutId)
+            setUploadProgress(prev => ({ ...prev, banner: 100 }))
+            
+            if (!uploadResponse.ok) {
+              const errorData = await uploadResponse.json().catch(() => ({}))
+              throw new Error(errorData.error || `Upload failed: ${uploadResponse.statusText}`)
+            }
+            
+            const uploadData = await uploadResponse.json()
+            bannerUrl = uploadData.ipfsUrl
           }
           
-          const uploadData = await uploadResponse.json()
-          bannerUrl = uploadData.ipfsUrl
           setUploadProgress(prev => ({ ...prev, banner: 0 }))
         } catch (error: any) {
-          console.error('Failed to upload banner image:', error)
+          console.error('Failed to process banner image:', error)
           setUploadProgress(prev => ({ ...prev, banner: 0 }))
-          let errorMessage = 'Failed to upload banner image'
+          let errorMessage = 'Failed to process banner image'
           
           if (error.name === 'AbortError') {
             errorMessage = 'Upload timed out. The image may be too large or your connection is slow. Please try a smaller image or check your connection.'
@@ -513,15 +530,32 @@ export default function AccountPage() {
       }
       
       // Prepare profile data for API
-      const profileData = {
+      const profileData: any = {
         username: profileFormData.username || null,
         bio: profileFormData.bio || null,
-        avatarUrl,
-        bannerUrl,
         website: profileFormData.socialLinks?.website || null,
         twitter: profileFormData.socialLinks?.twitter || null,
         telegram: profileFormData.socialLinks?.telegram || null,
         discord: profileFormData.socialLinks?.discord || null,
+      }
+      
+      // Add image data based on storage mode
+      if (useDatabaseStorage()) {
+        // Database storage: send base64 data
+        if (avatarUrl && avatarUrl.startsWith('data:')) {
+          profileData.avatarData = avatarUrl
+        } else {
+          profileData.avatarUrl = avatarUrl
+        }
+        if (bannerUrl && bannerUrl.startsWith('data:')) {
+          profileData.bannerData = bannerUrl
+        } else {
+          profileData.bannerUrl = bannerUrl
+        }
+      } else {
+        // IPFS storage: send URLs only
+        profileData.avatarUrl = avatarUrl
+        profileData.bannerUrl = bannerUrl
       }
 
       // Save to database via API
